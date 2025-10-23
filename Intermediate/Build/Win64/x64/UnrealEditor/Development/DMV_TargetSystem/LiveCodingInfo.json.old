@@ -1,0 +1,21 @@
+{
+	"RemapUnityFiles": 
+	{
+		"Module.DMV_TargetSystem.cpp.obj": [
+			"DMV_TargetSystem.init.gen.cpp.obj",
+			"XM_Scan.gen.cpp.obj",
+			"XM_TargetComponent.gen.cpp.obj",
+			"XM_TargetEvaluator.gen.cpp.obj",
+			"XM_TargetFilter_Base.gen.cpp.obj",
+			"XM_TargetFilter_Data.gen.cpp.obj",
+			"XM_TargetSubsystem.gen.cpp.obj",
+			"PerModuleInline.gen.cpp.obj",
+			"DMV_TargetSystem.cpp.obj",
+			"XM_Scan.cpp.obj",
+			"XM_TargetFilter_Base.cpp.obj",
+			"XM_TargetComponent.cpp.obj",
+			"XM_TargetEvaluator.cpp.obj",
+			"XM_TargetSubsystem.cpp.obj"
+		]
+	}
+}

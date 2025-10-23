@@ -1,0 +1,17 @@
+{
+    "Version": "1.2",
+    "Data": {
+        "Source": "d:\\gamedev\\projects\\wrh_warehouse\\wrh_proj\\plugins\\dmv_targetsystem\\source\\dmv_targetsystem\\private\\filters\\xm_targetfilter_base.cpp",
+        "ProvidedModule": "",
+        "PCH": "d:\\gamedev\\projects\\wrh_warehouse\\wrh_proj\\intermediate\\build\\win64\\x64\\warehouseeditor\\development\\unrealed\\sharedpch.unrealed.project.valapi.cpp20.h.pch",
+        "Includes": [
+            "d:\\gamedev\\projects\\wrh_warehouse\\wrh_proj\\plugins\\dmv_targetsystem\\intermediate\\build\\win64\\x64\\unrealeditor\\development\\dmv_targetsystem\\definitions.dmv_targetsystem.h",
+            "d:\\gamedev\\projects\\wrh_warehouse\\wrh_proj\\plugins\\dmv_targetsystem\\source\\dmv_targetsystem\\public\\filters\\xm_targetfilter_base.h",
+            "d:\\gamedev\\projects\\wrh_warehouse\\wrh_proj\\plugins\\dmv_targetsystem\\source\\dmv_targetsystem\\public\\filters\\scan\\xm_scan.h",
+            "d:\\gamedev\\projects\\wrh_warehouse\\wrh_proj\\plugins\\dmv_targetsystem\\intermediate\\build\\win64\\unrealeditor\\inc\\dmv_targetsystem\\uht\\xm_scan.generated.h",
+            "d:\\gamedev\\projects\\wrh_warehouse\\wrh_proj\\plugins\\dmv_targetsystem\\intermediate\\build\\win64\\unrealeditor\\inc\\dmv_targetsystem\\uht\\xm_targetfilter_base.generated.h"
+        ],
+        "ImportedModules": [],
+        "ImportedHeaderUnits": []
+    }
+}
