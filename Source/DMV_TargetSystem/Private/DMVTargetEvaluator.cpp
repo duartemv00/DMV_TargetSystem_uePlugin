@@ -17,24 +17,17 @@ UDMVTargetEvaluator::UDMVTargetEvaluator()
 void UDMVTargetEvaluator::BeginPlay()
 {
 	Super::BeginPlay();
-
+	
 	if (const UGameInstance* GameInstance = GetOwner()->GetGameInstance())
 	{
 		PlayerAutoTargetManagerSubsystem = GameInstance->GetSubsystem<UDMVTargetSubsystem>();
 	}
 
 	CachedPlayerController = Cast<APlayerController>(GetOwner());
-
-	// Add initial evaluation contexts
-	for (UXM_TargetEvaluationContext* TargetEvaluationContext : InitialTargetEvaluationContexts)
-	{
-		AddTargetEvaluationContext_Internal(TargetEvaluationContext);
-	}
-	
 }
 
-void UDMVTargetEvaluator::UpdateInterset(
-	TMap<TObjectPtr<UDMVTargetComponent>, UXM_TargetEvaluationContext*>& FinalistsPerSubcontext,
+void UDMVTargetEvaluator::UpdateInterest(
+	TArray<UDMVTargetComponent*>& Finalists,
 	FVector PlayerViewLocation,
 	FVector PlayerViewDirection)
 {
@@ -42,9 +35,9 @@ void UDMVTargetEvaluator::UpdateInterset(
 	if (bUpdateInterestByConeAngle)
 	{
 		float ClosestAngle = MaxAngleToGainInterest;
-		for (TPair Finalist : FinalistsPerSubcontext)
+		for (UDMVTargetComponent* Finalist : Finalists)
 		{
-			TObjectPtr<UDMVTargetComponent> Candidate_Target = Finalist.Key;
+			TObjectPtr<UDMVTargetComponent> Candidate_Target = Finalist;
 			if (!IsValid(Candidate_Target)) continue;
 			
 			const FVector TargetLocation = Candidate_Target->GetComponentLocation();				
@@ -56,21 +49,22 @@ void UDMVTargetEvaluator::UpdateInterset(
 			if (FinalistTargetAngle < MaxAngleToGainInterest && FinalistTargetAngle < ClosestAngle)
 			{
 				Candidate_Target->Interest = UKismetMathLibrary::Clamp(
-					Candidate_Target->Interest + InterestWinInAngle, Candidate_Target->BaseInterest, 100);
+					Candidate_Target->Interest + InterestWinWhileInAngle, Candidate_Target->BaseInterest, 100);
 				ClosestAngle = FinalistTargetAngle;
 			} else
 			{
 				Candidate_Target->Interest = UKismetMathLibrary::Clamp(
-					Candidate_Target->Interest - InterestLoseOutAngle, Candidate_Target->BaseInterest, 100);
+					Candidate_Target->Interest - InterestLostWhileOutAngle, Candidate_Target->BaseInterest, 100);
 			}
 		}
 	}
 
+	// Update Interest - Distance
 	if (bUpdateInterestByDistance) {
 		float ClosestDistance = MaxDistanceToGainInterest;
-		for (TPair Finalist : FinalistsPerSubcontext)
+		for (UDMVTargetComponent* Finalist : Finalists)
 		{
-			TObjectPtr<UDMVTargetComponent> Candidate_Target = Finalist.Key;
+			TObjectPtr<UDMVTargetComponent> Candidate_Target = Finalist;
 			if (!IsValid(Candidate_Target)) continue;
 			
 			const FVector TargetLocation = Candidate_Target->GetComponentLocation();				
@@ -95,164 +89,120 @@ void UDMVTargetEvaluator::TickComponent(float DeltaTime, ELevelTick TickType,
                                         FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+	AnalyseTargetGroups();
+}
 
-	// Check if the TargetManagerSubsystem exist
+void UDMVTargetEvaluator::AnalyseTargetGroups()
+{
 	if (!PlayerAutoTargetManagerSubsystem.IsValid())
-	{
-		ClearAllCurrentTargets();
-		return;
-	}
-
-	// Check if the Player Controller exists
+	{ClearAllCurrentTargets(); return;}
 	if (!CachedPlayerController.IsValid())
-	{
-		ClearAllCurrentTargets();
-		return;
-	}
-
+	{ClearAllCurrentTargets(); return;}
+	
 	FVector PlayerViewLocation;
 	FRotator PlayerViewRotation;
 	CachedPlayerController->GetPlayerViewPoint(PlayerViewLocation, PlayerViewRotation);
 	const FVector PlayerViewDirection = PlayerViewRotation.Quaternion() * FVector::ForwardVector;
 
-	if (ActiveTargetEvaluationContextsMap.Num() <= 0) return;
+	if (ActiveTargetGroups.Num() <= 0) return;
 
-	/** LOOP CONTEXT */
-	for (const TPair<FGameplayTag, FEvaluationContexts>& Context : ActiveTargetEvaluationContextsMap)
+	////////////////////////////////////////////////////////////////////////////////////////////////
+	/** Loop TARGET GROUPS */
+	for (const UTargetGroup* TargetGroupToEvaluate : ActiveTargetGroups)
 	{
-		FGameplayTag ContextIdentifier = Context.Key;
-		const auto& Subcontexts = Context.Value.TargetEvaluationContexts;
+		FGameplayTag TargetGroupIdentifier = TargetGroupToEvaluate->TargetGroupID;
 		
-		TMap<TObjectPtr<UDMVTargetComponent>, UXM_TargetEvaluationContext*> FinalistsPerSubcontext;
-		FinalistsPerSubcontext.Empty();
-		
-		// Look at all subcategories and decide which is the best target for each of them.
-		for (const auto& Subcontext : Subcontexts)
+		// Create & fill list of candidates target components
+		TArray<UDMVTargetComponent*> CandidatesTargetComponents; CandidatesTargetComponents.Empty();
+		for (const TWeakObjectPtr<UDMVTargetComponent> TargetComponent :
+			PlayerAutoTargetManagerSubsystem->GetTargetsForContext(TargetGroupToEvaluate->TargetGroupID))
 		{
-			UXM_TargetEvaluationContext* TargetEvaluationContext = Subcontext.Value;
-			FGameplayTagContainer SubcontextIndentifier;
-			SubcontextIndentifier.AddTag(Subcontext.Key);
-			
-			TArray<UDMVTargetComponent*> SubcontextTargetCandidates;
-			for (const TWeakObjectPtr<UDMVTargetComponent> Target :
-				PlayerAutoTargetManagerSubsystem->GetTargetsForContext(TargetEvaluationContext->ContextIdentifier))
-			{
-				SubcontextTargetCandidates.AddUnique(Target.Get());
-			}
-
-			/** FILTERS */
-			TArray<UDMVTargetFilter_Base*> FiltersForThisSubContext;
-			FiltersForThisSubContext.Empty();
-			// Get the correct filters for the subcontext
-			for (auto& SubcontextFilterList : Filters)
-			{
-				if (SubcontextIndentifier.HasAnyExact(SubcontextFilterList.SubContextId))
-				{
-					for (auto& [Threshold, OutputNumber, FilterClass] : SubcontextFilterList.FiltersForSubcontext)
-					{
-						UDMVTargetFilter_Base* NewFilter = NewObject<UDMVTargetFilter_Base>(GetTransientPackage(), FilterClass);
-						NewFilter->Initialize(Threshold);
-						FiltersForThisSubContext.AddUnique(NewFilter);
-					}
-				}
-			}
-			// Apply filters
-			for (auto& Filter : FiltersForThisSubContext)
-			{
-				SubcontextTargetCandidates = Filter->PerformFilter(SubcontextTargetCandidates, CachedPlayerController.Get());
-			}
-			for (auto& Candidate : SubcontextTargetCandidates)
-			{
-				TargetEvaluationContext->OnFilteringFinished.ExecuteIfBound(Candidate);
-			}
-			
-			/** Is there some candidate for the current subcontext? */
-			if (SubcontextTargetCandidates.Num() > 0)
-			{
-				// Only store the number one
-				FinalistsPerSubcontext.FindOrAdd(SubcontextTargetCandidates[0]);
-				FinalistsPerSubcontext[SubcontextTargetCandidates[0]] = TargetEvaluationContext;
-			}
+			CandidatesTargetComponents.AddUnique(TargetComponent.Get());
 		}
-
-		/** INTEREST */
-		UpdateInterset(FinalistsPerSubcontext, PlayerViewLocation, PlayerViewDirection);
-		/** Find subcontext finalist with the biggest interest value */
-		TObjectPtr<UDMVTargetComponent> FinalTarget = nullptr;
-		UXM_TargetEvaluationContext* FinalSubContext = nullptr;
+		
+		ApplyFiltersToCandidates(TargetGroupToEvaluate, CandidatesTargetComponents);
+		
+		// Decide final target or targets
 		float HighestInterest = 0.f;
-		for (TPair Finalist : FinalistsPerSubcontext)
+		TObjectPtr<UDMVTargetComponent> SelectedTargetComponent = nullptr;
+		if (CandidatesTargetComponents.Num() > 0)
 		{
-			TObjectPtr<UDMVTargetComponent> Candidate_Target = Finalist.Key;
-			UXM_TargetEvaluationContext* Candidate_SubContext = Finalist.Value;
-			if (!IsValid(Candidate_Target)) continue;
-
-			if (Candidate_Target->Interest >= HighestInterest)
+			switch (TargetGroupToEvaluate->NumberOfTargets)
 			{
-				HighestInterest = Candidate_Target->Interest;
-				FinalTarget = Candidate_Target;
-				FinalSubContext = Candidate_SubContext;
-			}
-		}
+				case ENumberOfTargets::SingleTarget:
+					SelectedTargetComponent = CandidatesTargetComponents[0];
+					break;
 
-		/** */
-		if (FinalTarget != nullptr)
-		{
-			FTargetInputContext InputContext;
-			InputContext.TargetComponent = FinalTarget;
-			InputContext.TargetActor = FinalTarget->GetOwner();
-			
-			SetCurrentTarget(ContextIdentifier, FinalTarget);
-			FinalSubContext->OnValidTargetFound.ExecuteIfBound(FinalTarget->GetOwner());
+				case ENumberOfTargets::SingleTargetUseInterest:
+					UpdateInterest(CandidatesTargetComponents, PlayerViewLocation, PlayerViewDirection);
+					for (UDMVTargetComponent* Candidate : CandidatesTargetComponents)
+					{
+						if (Candidate->Interest >= HighestInterest)
+						{
+							HighestInterest = Candidate->Interest;
+							SelectedTargetComponent = Candidate;
+						}
+					}
+					break;
+
+				case ENumberOfTargets::MultiTarget:
+					// TODO: Logic here.
+					break;
+
+				default:
+					break;
+			}
+			SetCurrentTarget(TargetGroupIdentifier, SelectedTargetComponent);
 		} else
 		{
-			ClearCurrentTarget(ContextIdentifier);
-			for (TPair aakjfbahf : FinalistsPerSubcontext){
-				aakjfbahf.Value->OnTargetCleared.ExecuteIfBound();
-			}
+			ClearCurrentTarget(TargetGroupIdentifier); return;
 		}
-		
 	}
 }
 
-UXM_TargetEvaluationContext* UDMVTargetEvaluator::AddTargetEvaluationContext(
-	const FGameplayTag& ParentContext,
-	const FGameplayTag& ContextIdentifier,
+void UDMVTargetEvaluator::ApplyFiltersToCandidates(const UTargetGroup* TargetGroupToEvaluate, TArray<UDMVTargetComponent*>& CandidatesTargetComponents)
+{
+	if (TargetGroupToEvaluate->Filters.IsEmpty()) return;
+	
+	// Gather filters (create them from the class reference)
+	TArray<UDMVTargetFilter_Base*> FiltersForThisTargetGroup;
+	for (auto& Filter : TargetGroupToEvaluate->Filters)
+	{
+		UDMVTargetFilter_Base* NewFilter = 
+			NewObject<UDMVTargetFilter_Base>(GetTransientPackage(), Filter.FilterClass);
+		NewFilter->Initialize(Filter.Value);
+		FiltersForThisTargetGroup.AddUnique(NewFilter);
+	}
+	// Apply filters
+	for (auto& Filter : FiltersForThisTargetGroup)
+	{
+		CandidatesTargetComponents = Filter->PerformFilter(CandidatesTargetComponents,
+			CachedPlayerController.Get());
+	}
+	// After applying filters call the delegate
+	for (auto& CandidateTargetComponent : CandidatesTargetComponents)
+	{
+		TargetGroupToEvaluate->OnFilteringFinished.ExecuteIfBound(CandidateTargetComponent);
+	}
+}
+
+UTargetGroup* UDMVTargetEvaluator::AddTargetEvaluationContext(
+	const FGameplayTag& TargetGroupID,
 	TArray<FFilterInformation> FiltersForTheContext,
 	FValidPlayerAutoTargetFound OnValidTargetFound,
 	FPlayerAutoTargetsCleared OnTargetCleared,
 	FFilteringFinished OnFilteringFinished
 	)
 {
-	UXM_TargetEvaluationContext* NewTargetEvaluationContext = NewObject<UXM_TargetEvaluationContext>(this);
-	// Configure the Evaluation Context
-	NewTargetEvaluationContext->ContextIdentifier = ContextIdentifier;
-	NewTargetEvaluationContext->ParentContextIdentifier = ParentContext;
+	UTargetGroup* NewTargetEvaluationContext = NewObject<UTargetGroup>(this);
+	// ID
+	NewTargetEvaluationContext->TargetGroupID = TargetGroupID;
+	// Delegates
 	NewTargetEvaluationContext->OnValidTargetFound = OnValidTargetFound;
 	NewTargetEvaluationContext->OnTargetCleared = OnTargetCleared;
 	NewTargetEvaluationContext->OnFilteringFinished = OnFilteringFinished;
-
-	// Add filters related with the context
-	bool bContextAlreadyHasFilters = false;	
-	for (auto& FilterGroup : Filters)
-	{
-		if (FilterGroup.SubContextId.HasTag(ContextIdentifier))
-		{
-			bContextAlreadyHasFilters = true;
-			// If the filter exists somewhere we add the filters
-			for (auto& NewFilter : FiltersForTheContext)
-			{
-				FilterGroup.FiltersForSubcontext.AddUnique(NewFilter);
-			}
-		}
-	}
-	if (!bContextAlreadyHasFilters)
-	{
-		FEvaluationFilters NewEvaluationFilters;
-		NewEvaluationFilters.SubContextId.AddTag(ContextIdentifier);
-		NewEvaluationFilters.FiltersForSubcontext = FiltersForTheContext;
-		Filters.Add(NewEvaluationFilters);
-	}
+	// Filters
+	NewTargetEvaluationContext->Filters = FiltersForTheContext;
 	
 	const bool bSuccess = AddTargetEvaluationContext_Internal(NewTargetEvaluationContext);
 	return bSuccess ? NewTargetEvaluationContext : nullptr;
@@ -260,20 +210,12 @@ UXM_TargetEvaluationContext* UDMVTargetEvaluator::AddTargetEvaluationContext(
 
 void UDMVTargetEvaluator::RemoveTargetEvaluationContext(const FGameplayTag& ContextIdentifier)
 {
-	for (TPair ParentContext : ActiveTargetEvaluationContextsMap) // TMap<FGameplayTag, FEvaluationContexts> 
+	for (UTargetGroup* ParentContext : ActiveTargetGroups)
 	{
-		if (ParentContext.Value.TargetEvaluationContexts.Contains(ContextIdentifier))
+		if (ParentContext->TargetGroupID == ContextIdentifier)
 		{
-			const UXM_TargetEvaluationContext* RemovedContext =
-				ParentContext.Value.TargetEvaluationContexts.FindAndRemoveChecked(ContextIdentifier);
-			
-			// Remove the current target storage for the context just to keep the map clean.
-			ClearCurrentTarget(ContextIdentifier); //!!!!!!!!!!!
-		}
-		else
-		{
-			UE_LOG(LogPlayerTargetEval, Warning, TEXT("No target evaluation context with identifier %s found to remove."),
-				*ContextIdentifier.ToString());
+			const UTargetGroup* RemovedContext = ParentContext;
+			ClearCurrentTarget(ContextIdentifier);
 		}
 	}
 }
@@ -299,8 +241,6 @@ void UDMVTargetEvaluator::SetCurrentTarget(const FGameplayTag& ContextIdentifier
 {
 	if (Target == nullptr)
 	{
-		UE_LOG(LogPlayerTargetEval, Warning, TEXT("Tried to pass a null target into SetCurrentTarget;"
-										  " use ClearCurrentTarget instead if you want to remove the current target."));
 		ClearCurrentTarget(ContextIdentifier);
 		return;
 	}
@@ -315,7 +255,7 @@ void UDMVTargetEvaluator::SetCurrentTarget(const FGameplayTag& ContextIdentifier
 
 void UDMVTargetEvaluator::ClearCurrentTarget(const FGameplayTag& ContextIdentifier)
 {
-
+	CurrentTargetsMap.Remove(ContextIdentifier);
 }
 
 void UDMVTargetEvaluator::ClearAllCurrentTargets()
@@ -328,22 +268,16 @@ void UDMVTargetEvaluator::ClearAllCurrentTargets()
 	}
 }
 
-bool UDMVTargetEvaluator::AddTargetEvaluationContext_Internal(UXM_TargetEvaluationContext* TargetEvaluationContext)
+bool UDMVTargetEvaluator::AddTargetEvaluationContext_Internal(UTargetGroup* TargetEvaluationContext)
 {
-	if (ActiveTargetEvaluationContextsMap.Find(TargetEvaluationContext->ParentContextIdentifier))
+	for (UTargetGroup* TargetGroup : ActiveTargetGroups)
 	{
-		FEvaluationContexts* ListOfSubcontextInsideTheContext = ActiveTargetEvaluationContextsMap.Find(TargetEvaluationContext->ParentContextIdentifier);
-		ListOfSubcontextInsideTheContext->TargetEvaluationContexts.Add(TargetEvaluationContext->ContextIdentifier, TargetEvaluationContext);
-		if (ListOfSubcontextInsideTheContext->TargetEvaluationContexts.Find(TargetEvaluationContext->ContextIdentifier))
+		if (TargetGroup->TargetGroupID == TargetEvaluationContext->TargetGroupID)
 		{
 			return false;
 		}
-		return true;
 	}
-	FEvaluationContexts NewEvaluationContextsEntry;
-	NewEvaluationContextsEntry.TargetEvaluationContexts.Add(TargetEvaluationContext->ContextIdentifier, TargetEvaluationContext);
-	ActiveTargetEvaluationContextsMap.Add(TargetEvaluationContext->ParentContextIdentifier, NewEvaluationContextsEntry);
-	
+	ActiveTargetGroups.Add(TargetEvaluationContext);
 	return true;
 }
 

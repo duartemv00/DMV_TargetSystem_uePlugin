@@ -21,20 +21,19 @@ public:
 // INTEREST //
 	UPROPERTY(EditAnywhere)
 	float BaseInterest = .0f;
-
 	UPROPERTY()
 	float Interest = .0f;
-
 	FTimerHandle InterestTimer;
 
 protected:
 	virtual void BeginPlay() override;
-
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 	UFUNCTION()
 	void ResetInterest();
 	
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Targeting", meta=(Categories="ID.TargetEvaluationContext"))
+	/** Here you can add to which context the object belongs */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Targeting", 
+		meta=(Categories="ID.TargetGroup"))
 	FGameplayTagContainer TargetContextIdentifiers;
 };
