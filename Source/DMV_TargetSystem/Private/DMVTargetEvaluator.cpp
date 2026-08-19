@@ -17,13 +17,22 @@ UDMVTargetEvaluator::UDMVTargetEvaluator()
 void UDMVTargetEvaluator::BeginPlay()
 {
 	Super::BeginPlay();
-	
+
+	CachedPlayerController = Cast<APlayerController>(GetOwner());
+
+	// Targeting is a per-viewer, cosmetic-only concern (used to drive local UI/reticle feedback).
+	// Only the owning client needs the result, so remote proxies of other players' controllers -
+	// and the server, for a client-owned controller - must not run this every tick.
+	if (!CachedPlayerController.IsValid() || !CachedPlayerController->IsLocalController())
+	{
+		SetComponentTickEnabled(false);
+		return;
+	}
+
 	if (const UGameInstance* GameInstance = GetOwner()->GetGameInstance())
 	{
 		PlayerAutoTargetManagerSubsystem = GameInstance->GetSubsystem<UDMVTargetSubsystem>();
 	}
-
-	CachedPlayerController = Cast<APlayerController>(GetOwner());
 }
 
 void UDMVTargetEvaluator::UpdateInterest(
@@ -89,6 +98,13 @@ void UDMVTargetEvaluator::TickComponent(float DeltaTime, ELevelTick TickType,
                                         FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+
+	if (!CachedPlayerController.IsValid() || !CachedPlayerController->IsLocalController())
+	{
+		SetComponentTickEnabled(false);
+		return;
+	}
+
 	AnalyseTargetGroups();
 }
 
