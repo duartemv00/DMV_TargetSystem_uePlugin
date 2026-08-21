@@ -101,6 +101,7 @@ public:
 	UTargetGroup* AddTargetEvaluationContext(
 		UPARAM(meta=(Categories="ID.TargetGroup")) const FGameplayTag& TargetGroupID,
 		TArray<FFilterInformation> FiltersForTheContext,
+		ENumberOfTargets NumberOfTargets,
 		FValidPlayerAutoTargetFound OnValidTargetFound,
 		FPlayerAutoTargetsCleared OnTargetCleared,
 		FFilteringFinished OnFilteringFinished);

@@ -14,6 +14,40 @@ consuming system (aim-assist, enemy lock-on, an interact prompt, etc.) needs it.
 [Integrating it into a project](#integrating-it-into-a-project) below for how that hookup should
 look.
 
+## Design intent
+
+The point of this system is to **take actors in the world and categorize them**, so other
+systems - UI (highlight prompts, reticles) or gameplay actions (interact, aim-assist, ability
+targeting) - can react to the right actor(s) without each of them re-implementing "find nearby
+candidates, filter them, pick one." A "category" is a target context tag; what a category is
+*for* (show a UI prompt on everything in it vs. resolve a single actor to act on) is exactly
+what `NumberOfTargets` decides per context.
+
+**Worked example - interaction:** two separate contexts, registered independently, doing two
+different jobs off the same underlying actors:
+
+- `ID.TargetGroup.CanInteract`, mode `MultiTarget` - every interactable actor within range/filter
+  criteria, all at once. This is what UI reads to decide *which actors currently show an interact
+  prompt* - there can legitimately be several at once (e.g. two pickups near each other).
+- `ID.TargetGroup.Interact`, mode `SingleTarget` or `SingleTargetUseInterest` - the *one* actor
+  that would actually be interacted with if the player pressed the interact button right now
+  (typically the closest, or the one closest to screen-center via Interest). This is what the
+  interact action itself resolves against.
+
+Both contexts can watch the same `UDMVTargetComponent`s (an interactable actor would carry both
+`ID.TargetGroup.CanInteract` and `ID.TargetGroup.Interact` in its `TargetContextIdentifiers`) -
+they're independent `UTargetGroup`s evaluated separately, each with its own selection mode and
+its own Filters, not two views of one shared result. The same pattern generalizes beyond
+interaction: an "everything the player can currently target" MultiTarget context feeding UI,
+paired with a "what would actually be hit/selected" single-target context feeding the action -
+e.g. a lock-on reticle context (MultiTarget, feeds which enemies show a lock-on icon) alongside
+an active-lock context (SingleTargetUseInterest, feeds which one enemy a homing ability actually
+fires at).
+
+Because each context is independent, **the selection mode is a per-context choice made when that
+context is registered** - see `AddTargetEvaluationContext`'s `NumberOfTargets` parameter below,
+not a global setting or something decided later.
+
 ## Core concepts
 
 | Concept | Class | Role |
@@ -126,9 +160,11 @@ overload that takes one) if/when a designer workflow wants that.
    it) and set its `TargetContextIdentifiers` to the `ID.TargetGroup.*` tag(s) it should be
    findable under (see [Gameplay tags](#gameplay-tags) below - you'll need to declare your own).
 3. Wherever you want a target (a weapon's aim-assist, an ability's targeting, an interact prompt),
-   call `Evaluator->AddTargetEvaluationContext(GroupTag, Filters, ...)` once (e.g. on equip/
-   activate) to register a `UTargetGroup`. Keep the returned `UTargetGroup*` if you need to
-   change `Filters`/`NumberOfTargets` later.
+   call `Evaluator->AddTargetEvaluationContext(GroupTag, Filters, NumberOfTargets, ...)` once
+   (e.g. on equip/activate) to register a `UTargetGroup` - explicitly choosing `SingleTarget`,
+   `SingleTargetUseInterest`, or `MultiTarget` for *this* context, per
+   [Design intent](#design-intent) above. Keep the returned `UTargetGroup*` if you need to change
+   `Filters`/`NumberOfTargets` later.
 4. Poll `Evaluator->GetCurrentTarget(GroupTag)` (or `GetCurrentTargets` for a `MultiTarget` group)
    wherever you need the answer - there's no push/event API yet, see below.
 5. Call `Evaluator->RemoveTargetEvaluationContext(GroupTag)` when you're done with it (e.g. on
@@ -194,3 +230,8 @@ This plugin had a few latent bugs and some dead code cleaned up alongside implem
 - `FFilteringFinished`'s delegate param was named `Targets` (plural) for a singular
   `UDMVTargetComponent*` - renamed to `Target` to match how it's actually broadcast (once per
   surviving candidate, not once with a list).
+- `AddTargetEvaluationContext` never actually let a caller choose `NumberOfTargets` - every
+  `UTargetGroup` it created silently kept the member default (`SingleTarget`), with no way to ask
+  for `SingleTargetUseInterest`/`MultiTarget` at registration time (only after, by reaching into
+  the returned `UTargetGroup*` and mutating it directly). Added `NumberOfTargets` as a required
+  parameter, matching [Design intent](#design-intent)'s "chosen per context at registration."

@@ -208,6 +208,7 @@ void UDMVTargetEvaluator::ApplyFiltersToCandidates(const UTargetGroup* TargetGro
 UTargetGroup* UDMVTargetEvaluator::AddTargetEvaluationContext(
 	const FGameplayTag& TargetGroupID,
 	TArray<FFilterInformation> FiltersForTheContext,
+	ENumberOfTargets NumberOfTargets,
 	FValidPlayerAutoTargetFound OnValidTargetFound,
 	FPlayerAutoTargetsCleared OnTargetCleared,
 	FFilteringFinished OnFilteringFinished
@@ -216,13 +217,15 @@ UTargetGroup* UDMVTargetEvaluator::AddTargetEvaluationContext(
 	UTargetGroup* NewTargetEvaluationContext = NewObject<UTargetGroup>(this);
 	// ID
 	NewTargetEvaluationContext->TargetGroupID = TargetGroupID;
+	// Selection mode
+	NewTargetEvaluationContext->NumberOfTargets = NumberOfTargets;
 	// Delegates
 	NewTargetEvaluationContext->OnValidTargetFound = OnValidTargetFound;
 	NewTargetEvaluationContext->OnTargetCleared = OnTargetCleared;
 	NewTargetEvaluationContext->OnFilteringFinished = OnFilteringFinished;
 	// Filters
 	NewTargetEvaluationContext->Filters = FiltersForTheContext;
-	
+
 	const bool bSuccess = AddTargetEvaluationContext_Internal(NewTargetEvaluationContext);
 	return bSuccess ? NewTargetEvaluationContext : nullptr;
 }
