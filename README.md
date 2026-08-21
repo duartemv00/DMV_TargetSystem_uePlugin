@@ -174,6 +174,24 @@ properties. `Category` is still worth using to visually group the exposed proper
 Details panel, but it doesn't control what's shown - `EditDefaultsOnly` vs. `EditAnywhere`/
 `EditInstanceOnly` does.
 
+**From a Blueprint filter subclass** (the expected way most filters get authored - see the
+example filters below), these C++ specifiers aren't directly on the variable creation UI, but
+they map onto standard Blueprint variable flags. For a new variable in the Blueprint's My
+Blueprint panel:
+
+1. Expose it at all - click its eye icon in the My Blueprint list (or check **Editable** in its
+   Details tab). An unexposed variable doesn't show in any Details panel, Class Defaults or
+   per-instance - only in the Blueprint's own graphs.
+2. Once exposed, its Details tab has an **Instance Editable** checkbox:
+   - **Checked** - per-usage tunable (the `EditAnywhere` bucket above). Use this for anything
+     like `MaxAngle` that a specific context should be able to retune.
+   - **Unchecked** - Class Defaults only (the `EditDefaultsOnly` bucket above). Use this for
+     anything fixed per filter class, like `ScanClass`.
+
+There's no Blueprint-variable equivalent of the narrower `EditInstanceOnly` (hidden from Class
+Defaults, visible only per-instance) - that combination is C++-only. From Blueprint it's a binary
+choice: **Instance Editable on** for tunable properties, **off** for fixed ones.
+
 **Footgun:** the base `PerformFilter_Implementation`/`SortCandidates_Implementation` both return
 an **empty array**, not the input unmodified. A `Filter` subclass that forgets to override
 `PerformFilter` doesn't act as a no-op/pass-through - it silently excludes every candidate for
