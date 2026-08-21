@@ -9,6 +9,8 @@
 #include "Filters/DMVTargetFilter_Base.h"
 #include "DMVTargetEvaluator.generated.h"
 
+class UDMVTargetFilter_Data;
+
 DECLARE_DYNAMIC_DELEGATE_OneParam(FFilteringFinished, UDMVTargetComponent*, Target);
 DECLARE_DYNAMIC_DELEGATE_OneParam(FValidPlayerAutoTargetFound, AActor*, Actor);
 DECLARE_DYNAMIC_DELEGATE(FPlayerAutoTargetsCleared);
@@ -22,26 +24,6 @@ enum class ENumberOfTargets : uint8
 };
 
 /**
- * 
- */
-USTRUCT(BlueprintType)
-struct FFilterInformation
-{
-	GENERATED_BODY()
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	float Value = 0.f;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Abilities")
-	TSubclassOf<UDMVTargetFilter_Base> FilterClass;
-	
-	bool operator==(const FFilterInformation& Other) const
-	{
-		return FilterClass == Other.FilterClass;
-	}
-};
-
-/**
  * Object representing a TARGET GROUP
  */
 UCLASS(BlueprintType)
@@ -52,10 +34,14 @@ class DMV_TARGETSYSTEM_API UTargetGroup : public UObject
 public:
 	UPROPERTY(EditAnywhere, meta=(Categories="ID.TargetGroup"))
 	FGameplayTag TargetGroupID = FGameplayTag::EmptyTag;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	TArray<FFilterInformation> Filters;
-	
+
+	/** This group's filters, each a fully independent, individually-configured instance (see
+	 *  UDMVTargetEvaluator::AddTargetEvaluationContext) - editing one doesn't affect any other
+	 *  UTargetGroup's copy of the same filter class, even if they were built from the same source
+	 *  instance or UDMVTargetFilter_Data asset. */
+	UPROPERTY(EditAnywhere, Instanced, BlueprintReadWrite)
+	TArray<UDMVTargetFilter_Base*> Filters;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	ENumberOfTargets NumberOfTargets = ENumberOfTargets::SingleTarget;
 	
@@ -96,42 +82,59 @@ public:
 		FVector PlayerViewLocation,
 		FVector PlayerViewDirection);
 
-	/** ADD a TARGET GROUP to be evaluated by this component. */
-	UFUNCTION(BlueprintCallable, meta=(AutoCreateRefTerm="ContextIdentifier, ParentContext"))
+	/** ADD a TARGET GROUP to be evaluated by this component. Each filter in FiltersForTheContext is
+	 *  duplicated into the resulting UTargetGroup's own ownership - the caller's source instances
+	 *  (e.g. pulled from a UDMVTargetFilter_Data asset shared across multiple contexts) are never
+	 *  mutated or shared, and each usage of a filter class gets its own independently-configured
+	 *  copy of that class's properties (Threshold, ScanClass, and anything a Blueprint subclass
+	 *  adds). */
+	UFUNCTION(BlueprintCallable, meta=(AutoCreateRefTerm="TargetGroupID"))
 	UTargetGroup* AddTargetEvaluationContext(
 		UPARAM(meta=(Categories="ID.TargetGroup")) const FGameplayTag& TargetGroupID,
-		TArray<FFilterInformation> FiltersForTheContext,
+		const TArray<UDMVTargetFilter_Base*>& FiltersForTheContext,
 		ENumberOfTargets NumberOfTargets,
 		FValidPlayerAutoTargetFound OnValidTargetFound,
 		FPlayerAutoTargetsCleared OnTargetCleared,
 		FFilteringFinished OnFilteringFinished);
-	
+
+	/** Convenience wrapper over AddTargetEvaluationContext that takes a UDMVTargetFilter_Data
+	 *  asset's FilterList instead of a raw filter array - lets a designer author a reusable filter
+	 *  preset once and reuse it across multiple contexts/controllers. */
+	UFUNCTION(BlueprintCallable, meta=(AutoCreateRefTerm="TargetGroupID"))
+	UTargetGroup* AddTargetEvaluationContextFromData(
+		UPARAM(meta=(Categories="ID.TargetGroup")) const FGameplayTag& TargetGroupID,
+		UDMVTargetFilter_Data* FilterData,
+		ENumberOfTargets NumberOfTargets,
+		FValidPlayerAutoTargetFound OnValidTargetFound,
+		FPlayerAutoTargetsCleared OnTargetCleared,
+		FFilteringFinished OnFilteringFinished);
+
 	/** REMOVE a TARGET GROUP so that it will no longer be evaluated by this component. */
-	UFUNCTION(BlueprintCallable, meta=(AutoCreateRefTerm="ContextIdentifier"))
+	UFUNCTION(BlueprintCallable, meta=(AutoCreateRefTerm="TargetGroupID"))
 	void RemoveTargetEvaluationContext(
 		UPARAM(meta=(Categories="ID.TargetGroup")) const FGameplayTag& TargetGroupID);
 
 	/** Returns the current target actor for the given TARGET GROUP - the first of its current
 	 *  targets, for TARGET GROUPS with more than one (MultiTarget). */
-	UFUNCTION(BlueprintPure, meta=(AutoCreateRefTerm="ContextIdentifier"))
+	UFUNCTION(BlueprintPure, meta=(AutoCreateRefTerm="TargetGroupID"))
 	AActor* GetCurrentTarget(UPARAM(meta=(Categories="ID.TargetGroup"))
 		const FGameplayTag& TargetGroupID) const;
 
 	/** Returns the current target component for the given TARGET GROUP - the first of its current
 	 *  targets, for TARGET GROUPS with more than one (MultiTarget). */
-	UFUNCTION(BlueprintPure, meta=(AutoCreateRefTerm="ContextIdentifier"))
+	UFUNCTION(BlueprintPure, meta=(AutoCreateRefTerm="TargetGroupID"))
 	UDMVTargetComponent* GetCurrentTargetComponent(UPARAM(meta=(Categories="ID.TargetGroup"))
 		const FGameplayTag& TargetGroupID) const;
 
 	/** Returns every current target actor for the given TARGET GROUP. For SingleTarget/
 	 *  SingleTargetUseInterest groups this is either empty or a single-element array; MultiTarget
 	 *  groups may return more than one. */
-	UFUNCTION(BlueprintPure, meta=(AutoCreateRefTerm="ContextIdentifier"))
+	UFUNCTION(BlueprintPure, meta=(AutoCreateRefTerm="TargetGroupID"))
 	TArray<AActor*> GetCurrentTargets(UPARAM(meta=(Categories="ID.TargetGroup"))
 		const FGameplayTag& TargetGroupID) const;
 
 	/** Returns every current target component for the given TARGET GROUP - see GetCurrentTargets. */
-	UFUNCTION(BlueprintPure, meta=(AutoCreateRefTerm="ContextIdentifier"))
+	UFUNCTION(BlueprintPure, meta=(AutoCreateRefTerm="TargetGroupID"))
 	TArray<UDMVTargetComponent*> GetCurrentTargetComponents(UPARAM(meta=(Categories="ID.TargetGroup"))
 		const FGameplayTag& TargetGroupID) const;
 	

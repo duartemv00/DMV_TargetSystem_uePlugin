@@ -118,10 +118,37 @@ one). `GetCurrentTargets()`/`GetCurrentTargetComponents()` return the full list 
 
 A Filter is a `UDMVTargetFilter_Base` subclass (native or Blueprint) that implements
 `PerformFilter(PotentialTargets, PlayerController) -> TArray<UDMVTargetComponent*>`. A
-`UTargetGroup`'s `Filters` array (`FFilterInformation`: a `Threshold` float + a
-`TSubclassOf<UDMVTargetFilter_Base>`) is instantiated fresh via `NewObject` every tick in
-`ApplyFiltersToCandidates` and run in array order, each filter narrowing/reordering the previous
+`UTargetGroup`'s `Filters` array holds actual filter **instances** (`Instanced` `UObject*`s, not
+just class references), run in array order, each filter narrowing/reordering the previous
 filter's output.
+
+### Per-usage configuration
+
+Filter instances are individually configured, not shared per class. Because
+`UDMVTargetFilter_Base` is `EditInlineNew`/`Blueprintable`, a Blueprint child (e.g.
+`BP_TargetFilter_ViewCone`) can add its own properties beyond the base `Threshold` (a `MaxAngle`,
+a `TargetTag` to require, whatever that filter needs) - that part of the class hierarchy already
+worked before this change. What didn't work is *reusing the same filter class with different
+settings in two different contexts*: `AddTargetEvaluationContext` used to take a plain
+`TSubclassOf<UDMVTargetFilter_Base>` + one generic `float Value`, so every usage of a class got
+identical property values.
+
+Now `AddTargetEvaluationContext` takes `const TArray<UDMVTargetFilter_Base*>&` - actual
+pre-configured instances, each with whatever `Threshold`/custom properties you set on it - and
+**duplicates each one** (`DuplicateObject`) into the new `UTargetGroup`'s own ownership. That
+means:
+
+- The same `BP_TargetFilter_ViewCone` class can be used with a 30° cone in one context and a 60°
+  cone in another - build two separate instances (e.g. two `Instanced` `UPROPERTY`s on your
+  `PlayerController`, each independently configured in its Details panel), pass each to a
+  different `AddTargetEvaluationContext` call.
+- The source instance you pass in is never mutated - `AddTargetEvaluationContext` always works on
+  a duplicate, so the same source instance (or a shared `UDMVTargetFilter_Data` preset, see below)
+  can safely be reused across multiple contexts/controllers without them stepping on each other.
+- Filters no longer need per-tick construction - `ApplyFiltersToCandidates` just runs the
+  `UTargetGroup`'s already-owned instances directly every tick instead of calling `NewObject` for
+  each one (this also resolves the per-tick-allocation concern previously listed under Known
+  Gaps).
 
 **Footgun:** the base `PerformFilter_Implementation`/`SortCandidates_Implementation` both return
 an **empty array**, not the input unmodified. A `Filter` subclass that forgets to override
@@ -146,11 +173,15 @@ Existing example filters, shipped as Blueprints in this plugin's own
 - `BP_TargetFilter_LineOfSight` (+ `BP_Scan_LineOfSight` as its `ScanClass`) - presumably a
   per-candidate visibility trace via the scan-actor pattern above.
 
-`UDMVTargetFilter_Data` (a `UDataAsset` holding an `Instanced` array of filters) exists so
-designers can author reusable filter presets without editing a `PlayerController` Blueprint
-directly - but **nothing currently reads a `UDMVTargetFilter_Data` asset anywhere**; it's an
-orphaned convenience type. Wire it into `AddTargetEvaluationContext`'s call site (or add an
-overload that takes one) if/when a designer workflow wants that.
+### Reusable presets: `UDMVTargetFilter_Data`
+
+`UDMVTargetFilter_Data` (a `UDataAsset` holding an `Instanced` array of filters, `FilterList`)
+lets a designer author a reusable, individually-configured set of filters once - as an asset,
+not buried in a `PlayerController` Blueprint graph - and reuse it across multiple contexts.
+Call `Evaluator->AddTargetEvaluationContextFromData(GroupTag, FilterDataAsset, NumberOfTargets,
+...)` instead of `AddTargetEvaluationContext` to consume one directly; it duplicates
+`FilterData->FilterList` the same way the base function duplicates any other filter array, so the
+same asset stays a safe, unmutated template no matter how many contexts pull from it.
 
 ## Integrating it into a project
 
@@ -160,11 +191,13 @@ overload that takes one) if/when a designer workflow wants that.
    it) and set its `TargetContextIdentifiers` to the `ID.TargetGroup.*` tag(s) it should be
    findable under (see [Gameplay tags](#gameplay-tags) below - you'll need to declare your own).
 3. Wherever you want a target (a weapon's aim-assist, an ability's targeting, an interact prompt),
-   call `Evaluator->AddTargetEvaluationContext(GroupTag, Filters, NumberOfTargets, ...)` once
-   (e.g. on equip/activate) to register a `UTargetGroup` - explicitly choosing `SingleTarget`,
+   call `Evaluator->AddTargetEvaluationContext(GroupTag, Filters, NumberOfTargets, ...)` (or
+   `AddTargetEvaluationContextFromData` with a `UDMVTargetFilter_Data` asset) once (e.g. on equip/
+   activate) to register a `UTargetGroup` - explicitly choosing `SingleTarget`,
    `SingleTargetUseInterest`, or `MultiTarget` for *this* context, per
-   [Design intent](#design-intent) above. Keep the returned `UTargetGroup*` if you need to change
-   `Filters`/`NumberOfTargets` later.
+   [Design intent](#design-intent) above, and passing already-configured filter instances (see
+   [Filters](#filters) above for per-usage configuration). Keep the returned `UTargetGroup*` if you
+   need to change `Filters`/`NumberOfTargets` later.
 4. Poll `Evaluator->GetCurrentTarget(GroupTag)` (or `GetCurrentTargets` for a `MultiTarget` group)
    wherever you need the answer - there's no push/event API yet, see below.
 5. Call `Evaluator->RemoveTargetEvaluationContext(GroupTag)` when you're done with it (e.g. on
@@ -202,10 +235,9 @@ a system that depends on them:
   targets.
 - **`MultiTarget` has no built-in cap** (by design, see [Selection modes](#selection-modes-enumberoftargets)
   above) - if you need a bounded count, build it into a Filter.
-- **`UDMVTargetFilter_Data` is unused** - see [Filters](#filters) above.
-- **Filters are instantiated fresh via `NewObject` every tick**, and scan-based filters spawn+
-  destroy an actor per candidate per call - both fine at today's scale (nothing uses this plugin
-  yet), worth profiling once a real consumer with many concurrent groups/candidates exists.
+- **Scan-based filters spawn+destroy an actor per candidate per call** (`SpawnActorToScan`) - fine
+  at today's scale (nothing uses this plugin yet), worth profiling once a real consumer with many
+  concurrent groups/candidates uses a scan-based filter.
 
 ## Recent history
 
@@ -235,3 +267,14 @@ This plugin had a few latent bugs and some dead code cleaned up alongside implem
   for `SingleTargetUseInterest`/`MultiTarget` at registration time (only after, by reaching into
   the returned `UTargetGroup*` and mutating it directly). Added `NumberOfTargets` as a required
   parameter, matching [Design intent](#design-intent)'s "chosen per context at registration."
+- Filters went from "class reference + one generic float, instantiated fresh every tick" to
+  "pre-configured instances, duplicated once at registration" - see
+  [Per-usage configuration](#per-usage-configuration) above. `FFilterInformation` is gone;
+  `UDMVTargetFilter_Base::Initialize()` is gone (its one job, setting `Threshold`, is now just a
+  normal property edit on the instance you pass in); `UDMVTargetFilter_Data` is finally consumed,
+  via the new `AddTargetEvaluationContextFromData`. Also fixed while touching every
+  `TargetGroupID`-taking `UFUNCTION` in this pass: their `meta=(AutoCreateRefTerm=...)` referenced
+  a stale param name (`ContextIdentifier`/`ParentContext`) left over from an earlier rename that
+  never got the metadata updated - harmless (Blueprint just silently ignored the unrecognized
+  name), but meant the parameter never actually got the "optional, auto-default" pin behavior the
+  metadata was meant to give it. Now correctly says `TargetGroupID`.

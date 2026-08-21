@@ -3,6 +3,7 @@
 
 #include "../Public/DMVTargetEvaluator.h"
 #include "../Public/Filters/DMVTargetFilter_Base.h"
+#include "../Public/Filters/DMVTargetFilter_Data.h"
 #include "Kismet/KismetMathLibrary.h"
 
 
@@ -182,19 +183,13 @@ void UDMVTargetEvaluator::AnalyseTargetGroups()
 void UDMVTargetEvaluator::ApplyFiltersToCandidates(const UTargetGroup* TargetGroupToEvaluate, TArray<UDMVTargetComponent*>& CandidatesTargetComponents)
 {
 	if (TargetGroupToEvaluate->Filters.IsEmpty()) return;
-	
-	// Gather filters (create them from the class reference)
-	TArray<UDMVTargetFilter_Base*> FiltersForThisTargetGroup;
-	for (auto& Filter : TargetGroupToEvaluate->Filters)
+
+	// Each filter is already a pre-configured instance owned by this TargetGroup (see
+	// AddTargetEvaluationContext) - no per-tick construction needed, just run them in order.
+	for (UDMVTargetFilter_Base* Filter : TargetGroupToEvaluate->Filters)
 	{
-		UDMVTargetFilter_Base* NewFilter = 
-			NewObject<UDMVTargetFilter_Base>(GetTransientPackage(), Filter.FilterClass);
-		NewFilter->Initialize(Filter.Value);
-		FiltersForThisTargetGroup.AddUnique(NewFilter);
-	}
-	// Apply filters
-	for (auto& Filter : FiltersForThisTargetGroup)
-	{
+		if (!IsValid(Filter)) continue;
+
 		CandidatesTargetComponents = Filter->PerformFilter(CandidatesTargetComponents,
 			CachedPlayerController.Get());
 	}
@@ -207,7 +202,7 @@ void UDMVTargetEvaluator::ApplyFiltersToCandidates(const UTargetGroup* TargetGro
 
 UTargetGroup* UDMVTargetEvaluator::AddTargetEvaluationContext(
 	const FGameplayTag& TargetGroupID,
-	TArray<FFilterInformation> FiltersForTheContext,
+	const TArray<UDMVTargetFilter_Base*>& FiltersForTheContext,
 	ENumberOfTargets NumberOfTargets,
 	FValidPlayerAutoTargetFound OnValidTargetFound,
 	FPlayerAutoTargetsCleared OnTargetCleared,
@@ -223,11 +218,40 @@ UTargetGroup* UDMVTargetEvaluator::AddTargetEvaluationContext(
 	NewTargetEvaluationContext->OnValidTargetFound = OnValidTargetFound;
 	NewTargetEvaluationContext->OnTargetCleared = OnTargetCleared;
 	NewTargetEvaluationContext->OnFilteringFinished = OnFilteringFinished;
-	// Filters
-	NewTargetEvaluationContext->Filters = FiltersForTheContext;
+
+	// Duplicate each filter into a private, independently-owned copy so the caller's source
+	// instances (e.g. from a shared UDMVTargetFilter_Data asset) are never mutated or shared
+	// across TargetGroups - each usage gets its own per-instance-tunable properties.
+	NewTargetEvaluationContext->Filters.Reserve(FiltersForTheContext.Num());
+	for (UDMVTargetFilter_Base* SourceFilter : FiltersForTheContext)
+	{
+		if (IsValid(SourceFilter))
+		{
+			NewTargetEvaluationContext->Filters.Add(
+				DuplicateObject<UDMVTargetFilter_Base>(SourceFilter, NewTargetEvaluationContext));
+		}
+	}
 
 	const bool bSuccess = AddTargetEvaluationContext_Internal(NewTargetEvaluationContext);
 	return bSuccess ? NewTargetEvaluationContext : nullptr;
+}
+
+UTargetGroup* UDMVTargetEvaluator::AddTargetEvaluationContextFromData(
+	const FGameplayTag& TargetGroupID,
+	UDMVTargetFilter_Data* FilterData,
+	ENumberOfTargets NumberOfTargets,
+	FValidPlayerAutoTargetFound OnValidTargetFound,
+	FPlayerAutoTargetsCleared OnTargetCleared,
+	FFilteringFinished OnFilteringFinished
+	)
+{
+	return AddTargetEvaluationContext(
+		TargetGroupID,
+		IsValid(FilterData) ? FilterData->FilterList : TArray<UDMVTargetFilter_Base*>(),
+		NumberOfTargets,
+		OnValidTargetFound,
+		OnTargetCleared,
+		OnFilteringFinished);
 }
 
 void UDMVTargetEvaluator::RemoveTargetEvaluationContext(const FGameplayTag& ContextIdentifier)

@@ -3,11 +3,6 @@
 
 #include "../../Public/Filters/DMVTargetFilter_Base.h"
 
-void UDMVTargetFilter_Base::Initialize(float _Threshold)
-{
-	Threshold = _Threshold;
-}
-
 bool UDMVTargetFilter_Base::SpawnActorToScan(APlayerController* PlayerController, UDMVTargetComponent* Target)
 {
 	if (!IsValid(ScanClass)) return false;
