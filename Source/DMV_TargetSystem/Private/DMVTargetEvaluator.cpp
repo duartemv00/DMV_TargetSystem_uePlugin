@@ -171,7 +171,7 @@ void UDMVTargetEvaluator::AnalyseTargetGroups()
 			SetCurrentTarget(TargetGroupIdentifier, SelectedTargetComponent);
 		} else
 		{
-			ClearCurrentTarget(TargetGroupIdentifier); return;
+			ClearCurrentTarget(TargetGroupIdentifier); continue;
 		}
 	}
 }
