@@ -137,42 +137,45 @@ void UDMVTargetEvaluator::AnalyseTargetGroups()
 		}
 		
 		ApplyFiltersToCandidates(TargetGroupToEvaluate, CandidatesTargetComponents);
-		
+
 		// Decide final target or targets
+		if (CandidatesTargetComponents.Num() <= 0)
+		{
+			ClearCurrentTarget(TargetGroupIdentifier);
+			continue;
+		}
+
+		if (TargetGroupToEvaluate->NumberOfTargets == ENumberOfTargets::MultiTarget)
+		{
+			// Every candidate that survived the Filters array becomes a target - no separate cap.
+			SetCurrentTargets(TargetGroupIdentifier, CandidatesTargetComponents);
+			continue;
+		}
+
 		float HighestInterest = 0.f;
 		TObjectPtr<UDMVTargetComponent> SelectedTargetComponent = nullptr;
-		if (CandidatesTargetComponents.Num() > 0)
+		switch (TargetGroupToEvaluate->NumberOfTargets)
 		{
-			switch (TargetGroupToEvaluate->NumberOfTargets)
-			{
-				case ENumberOfTargets::SingleTarget:
-					SelectedTargetComponent = CandidatesTargetComponents[0];
-					break;
+			case ENumberOfTargets::SingleTarget:
+				SelectedTargetComponent = CandidatesTargetComponents[0];
+				break;
 
-				case ENumberOfTargets::SingleTargetUseInterest:
-					UpdateInterest(CandidatesTargetComponents, PlayerViewLocation, PlayerViewDirection);
-					for (UDMVTargetComponent* Candidate : CandidatesTargetComponents)
+			case ENumberOfTargets::SingleTargetUseInterest:
+				UpdateInterest(CandidatesTargetComponents, PlayerViewLocation, PlayerViewDirection);
+				for (UDMVTargetComponent* Candidate : CandidatesTargetComponents)
+				{
+					if (Candidate->Interest >= HighestInterest)
 					{
-						if (Candidate->Interest >= HighestInterest)
-						{
-							HighestInterest = Candidate->Interest;
-							SelectedTargetComponent = Candidate;
-						}
+						HighestInterest = Candidate->Interest;
+						SelectedTargetComponent = Candidate;
 					}
-					break;
+				}
+				break;
 
-				case ENumberOfTargets::MultiTarget:
-					// TODO: Logic here.
-					break;
-
-				default:
-					break;
-			}
-			SetCurrentTarget(TargetGroupIdentifier, SelectedTargetComponent);
-		} else
-		{
-			ClearCurrentTarget(TargetGroupIdentifier); continue;
+			default:
+				break;
 		}
+		SetCurrentTarget(TargetGroupIdentifier, SelectedTargetComponent);
 	}
 }
 
@@ -247,10 +250,35 @@ AActor* UDMVTargetEvaluator::GetCurrentTarget(const FGameplayTag& ContextIdentif
 
 UDMVTargetComponent* UDMVTargetEvaluator::GetCurrentTargetComponent(const FGameplayTag& ContextIdentifier) const
 {
-	const TWeakObjectPtr<UDMVTargetComponent>* CurrentTarget;
-	CurrentTarget =	CurrentTargetsMap.Find(ContextIdentifier);
+	const TArray<TWeakObjectPtr<UDMVTargetComponent>>* CurrentTargets = CurrentTargetsMap.Find(ContextIdentifier);
+	return (CurrentTargets != nullptr && CurrentTargets->Num() > 0) ? (*CurrentTargets)[0].Get() : nullptr;
+}
 
-	return CurrentTarget != nullptr ? CurrentTarget->Get() : nullptr;
+TArray<AActor*> UDMVTargetEvaluator::GetCurrentTargets(const FGameplayTag& ContextIdentifier) const
+{
+	TArray<AActor*> Result;
+	for (UDMVTargetComponent* Target : GetCurrentTargetComponents(ContextIdentifier))
+	{
+		Result.Add(Target->GetOwner());
+	}
+	return Result;
+}
+
+TArray<UDMVTargetComponent*> UDMVTargetEvaluator::GetCurrentTargetComponents(const FGameplayTag& ContextIdentifier) const
+{
+	TArray<UDMVTargetComponent*> Result;
+	if (const TArray<TWeakObjectPtr<UDMVTargetComponent>>* CurrentTargets = CurrentTargetsMap.Find(ContextIdentifier))
+	{
+		Result.Reserve(CurrentTargets->Num());
+		for (const TWeakObjectPtr<UDMVTargetComponent>& WeakTarget : *CurrentTargets)
+		{
+			if (UDMVTargetComponent* Target = WeakTarget.Get())
+			{
+				Result.Add(Target);
+			}
+		}
+	}
+	return Result;
 }
 
 void UDMVTargetEvaluator::SetCurrentTarget(const FGameplayTag& ContextIdentifier, UDMVTargetComponent* Target)
@@ -261,12 +289,30 @@ void UDMVTargetEvaluator::SetCurrentTarget(const FGameplayTag& ContextIdentifier
 		return;
 	}
 
-	const TWeakObjectPtr<UDMVTargetComponent>* PrevTargetPtrPtr = CurrentTargetsMap.Find(ContextIdentifier);
-	const UDMVTargetComponent* PrevTarget = PrevTargetPtrPtr != nullptr ? PrevTargetPtrPtr->Get() : nullptr;
-	
-	CurrentTargetsMap.Add(ContextIdentifier, TWeakObjectPtr(Target));
-	
-	UE_LOG(LogTemp, Warning, TEXT("New target of %s: %s"), *ContextIdentifier.ToString(), *Target->GetOwner()->GetName());
+	SetCurrentTargets(ContextIdentifier, TArray<UDMVTargetComponent*>{Target});
+}
+
+void UDMVTargetEvaluator::SetCurrentTargets(const FGameplayTag& ContextIdentifier, const TArray<UDMVTargetComponent*>& Targets)
+{
+	TArray<TWeakObjectPtr<UDMVTargetComponent>> WeakTargets;
+	WeakTargets.Reserve(Targets.Num());
+	for (UDMVTargetComponent* Target : Targets)
+	{
+		if (IsValid(Target))
+		{
+			WeakTargets.Add(Target);
+		}
+	}
+
+	if (WeakTargets.IsEmpty())
+	{
+		ClearCurrentTarget(ContextIdentifier);
+		return;
+	}
+
+	CurrentTargetsMap.Add(ContextIdentifier, MoveTemp(WeakTargets));
+
+	UE_LOG(LogTemp, Warning, TEXT("New target(s) of %s: %d"), *ContextIdentifier.ToString(), Targets.Num());
 }
 
 void UDMVTargetEvaluator::ClearCurrentTarget(const FGameplayTag& ContextIdentifier)

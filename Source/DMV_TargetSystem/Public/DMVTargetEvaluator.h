@@ -125,14 +125,28 @@ public:
 	void RemoveTargetEvaluationContext(
 		UPARAM(meta=(Categories="ID.TargetGroup")) const FGameplayTag& TargetGroupID);
 
-	/** Returns the current target actor for the given TARGET GROUP. */
+	/** Returns the current target actor for the given TARGET GROUP - the first of its current
+	 *  targets, for TARGET GROUPS with more than one (MultiTarget). */
 	UFUNCTION(BlueprintPure, meta=(AutoCreateRefTerm="ContextIdentifier"))
-	AActor* GetCurrentTarget(UPARAM(meta=(Categories="ID.TargetGroup")) 
+	AActor* GetCurrentTarget(UPARAM(meta=(Categories="ID.TargetGroup"))
 		const FGameplayTag& TargetGroupID) const;
-	
-	/** Returns the current target component for the given TARGET GROUP. */
+
+	/** Returns the current target component for the given TARGET GROUP - the first of its current
+	 *  targets, for TARGET GROUPS with more than one (MultiTarget). */
 	UFUNCTION(BlueprintPure, meta=(AutoCreateRefTerm="ContextIdentifier"))
-	UDMVTargetComponent* GetCurrentTargetComponent(UPARAM(meta=(Categories="ID.TargetGroup")) 
+	UDMVTargetComponent* GetCurrentTargetComponent(UPARAM(meta=(Categories="ID.TargetGroup"))
+		const FGameplayTag& TargetGroupID) const;
+
+	/** Returns every current target actor for the given TARGET GROUP. For SingleTarget/
+	 *  SingleTargetUseInterest groups this is either empty or a single-element array; MultiTarget
+	 *  groups may return more than one. */
+	UFUNCTION(BlueprintPure, meta=(AutoCreateRefTerm="ContextIdentifier"))
+	TArray<AActor*> GetCurrentTargets(UPARAM(meta=(Categories="ID.TargetGroup"))
+		const FGameplayTag& TargetGroupID) const;
+
+	/** Returns every current target component for the given TARGET GROUP - see GetCurrentTargets. */
+	UFUNCTION(BlueprintPure, meta=(AutoCreateRefTerm="ContextIdentifier"))
+	TArray<UDMVTargetComponent*> GetCurrentTargetComponents(UPARAM(meta=(Categories="ID.TargetGroup"))
 		const FGameplayTag& TargetGroupID) const;
 	
 	// INTEREST PROPERTIES
@@ -157,9 +171,15 @@ public:
 
 private:
 
-	/** Helper method to add/set a current target for a context, complete with broadcasting delegate updates if
-	 * necessary. */
+	/** Helper method to add/set the single current target for a context (SingleTarget/
+	 * SingleTargetUseInterest), complete with broadcasting delegate updates if necessary. A thin
+	 * wrapper over SetCurrentTargets for the single-target case. */
 	void SetCurrentTarget(const FGameplayTag& ContextIdentifier, UDMVTargetComponent* Target);
+
+	/** Helper method to set the full list of current targets for a context (MultiTarget), complete
+	 * with broadcasting delegate updates if necessary. Invalid/null entries are dropped; an empty
+	 * resulting list clears the context instead of storing an empty array. */
+	void SetCurrentTargets(const FGameplayTag& ContextIdentifier, const TArray<UDMVTargetComponent*>& Targets);
 
 	/** Helper method to clear a current target for a context, complete with broadcasting delegate updates if
 	 * necessary. */
@@ -184,9 +204,11 @@ private:
 	// TMap<FGameplayTag, FTargetGroupList> ActiveTargetGroupsMap;
 	TArray<UTargetGroup*> ActiveTargetGroups;
 
-	/** Map containing the current target for target evaluation contexts. */
-	UPROPERTY(VisibleAnywhere)
-	TMap<FGameplayTag, TWeakObjectPtr<UDMVTargetComponent>> CurrentTargetsMap;
+	/** Map containing the current target(s) for target evaluation contexts. SingleTarget/
+	 * SingleTargetUseInterest contexts always store a single-element array; MultiTarget contexts
+	 * may store more than one. Not a UPROPERTY - UHT doesn't support a TArray value inside a TMap -
+	 * but TWeakObjectPtr entries don't need GC tracking either way. */
+	TMap<FGameplayTag, TArray<TWeakObjectPtr<UDMVTargetComponent>>> CurrentTargetsMap;
 
 	/** Max range of all active target evaluations contexts. This is cached anytime the contexts are updated.
 	 *
