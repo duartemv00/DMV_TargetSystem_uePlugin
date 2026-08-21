@@ -229,14 +229,12 @@ UTargetGroup* UDMVTargetEvaluator::AddTargetEvaluationContext(
 
 void UDMVTargetEvaluator::RemoveTargetEvaluationContext(const FGameplayTag& ContextIdentifier)
 {
-	for (UTargetGroup* ParentContext : ActiveTargetGroups)
+	ClearCurrentTarget(ContextIdentifier);
+
+	ActiveTargetGroups.RemoveAll([&ContextIdentifier](const UTargetGroup* TargetGroup)
 	{
-		if (ParentContext->TargetGroupID == ContextIdentifier)
-		{
-			const UTargetGroup* RemovedContext = ParentContext;
-			ClearCurrentTarget(ContextIdentifier);
-		}
-	}
+		return TargetGroup->TargetGroupID == ContextIdentifier;
+	});
 }
 
 AActor* UDMVTargetEvaluator::GetCurrentTarget(const FGameplayTag& ContextIdentifier) const

@@ -9,7 +9,7 @@
 #include "Filters/DMVTargetFilter_Base.h"
 #include "DMVTargetEvaluator.generated.h"
 
-DECLARE_DYNAMIC_DELEGATE_OneParam(FFilteringFinished, UDMVTargetComponent*, Targets);
+DECLARE_DYNAMIC_DELEGATE_OneParam(FFilteringFinished, UDMVTargetComponent*, Target);
 DECLARE_DYNAMIC_DELEGATE_OneParam(FValidPlayerAutoTargetFound, AActor*, Actor);
 DECLARE_DYNAMIC_DELEGATE(FPlayerAutoTargetsCleared);
 
@@ -19,21 +19,6 @@ enum class ENumberOfTargets : uint8
 	SingleTarget,
 	SingleTargetUseInterest,
 	MultiTarget
-};
-
-/**
- * Information of a CANDIDATE
- */
-USTRUCT(BlueprintType)
-struct FCandidate
-{
-	GENERATED_BODY()
-
-	UPROPERTY(BlueprintReadOnly)
-	UDMVTargetComponent* CandidateTargetComponent = nullptr;
-
-	UPROPERTY(BlueprintReadOnly)
-	AActor* CandidateActor = nullptr;
 };
 
 /**
@@ -56,10 +41,10 @@ struct FFilterInformation
 	}
 };
 
-/** 
+/**
  * Object representing a TARGET GROUP
  */
-UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
+UCLASS(BlueprintType)
 class DMV_TARGETSYSTEM_API UTargetGroup : public UObject
 {
 	GENERATED_BODY()
@@ -210,16 +195,6 @@ private:
 	 * but TWeakObjectPtr entries don't need GC tracking either way. */
 	TMap<FGameplayTag, TArray<TWeakObjectPtr<UDMVTargetComponent>>> CurrentTargetsMap;
 
-	/** Max range of all active target evaluations contexts. This is cached anytime the contexts are updated.
-	 *
-	 * This is one of the main motivations of having this class; we only need to do a single sphere check for actors,
-	 * and then evaluate each of those targets against each context (as opposed to doing a sphere check for each type
-	 * of targeting. */
-	float CurrentTargetEvaluationRange = 0.f;
-
-	/* Static sphere shape used for line-of-sight checking. */
-	inline static FCollisionShape LineOfSightSphereShape = FCollisionShape::MakeSphere(10.f);
-	
 };
 
 
