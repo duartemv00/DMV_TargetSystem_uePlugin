@@ -150,6 +150,30 @@ means:
   each one (this also resolves the per-tick-allocation concern previously listed under Known
   Gaps).
 
+### Convention: which properties should be per-usage tunable
+
+When a filter instance is edited inline inside an `Instanced` array slot (a `UTargetGroup`'s
+`Filters`, or a `UDMVTargetFilter_Data`'s `FilterList`), the engine already only shows properties
+that aren't `EditDefaultsOnly` - no custom "exposed" flag or category scheme needed, this is just
+the standard `EditAnywhere`/`EditInstanceOnly` vs. `EditDefaultsOnly` distinction:
+
+- **`EditAnywhere` (or `EditInstanceOnly`)** - shows up on every per-usage instance, so use it for
+  anything that's meant to vary per context: `Threshold`, and any property a Blueprint subclass
+  adds that a specific usage should be able to tune (a `MaxAngle`, a required tag, etc.). Prefer
+  `EditAnywhere` over `EditInstanceOnly` when a sensible shared starting value exists (it's then
+  also settable as that filter class's own default, so a fresh instance doesn't start at a bare
+  `0`/`nullptr`); use `EditInstanceOnly` only if the property should never have a class-level
+  default at all.
+- **`EditDefaultsOnly`** - only editable on the filter *class*'s own Class Defaults, hidden from
+  every per-usage instance. Use it for anything that's a fixed choice baked into that filter
+  class rather than something a level/context author should retune each time it's used -
+  `ScanClass` on the base class is already marked this way for exactly that reason.
+
+This is a per-property choice, not a per-class one - a single filter can freely mix both kinds of
+properties. `Category` is still worth using to visually group the exposed properties in the
+Details panel, but it doesn't control what's shown - `EditDefaultsOnly` vs. `EditAnywhere`/
+`EditInstanceOnly` does.
+
 **Footgun:** the base `PerformFilter_Implementation`/`SortCandidates_Implementation` both return
 an **empty array**, not the input unmodified. A `Filter` subclass that forgets to override
 `PerformFilter` doesn't act as a no-op/pass-through - it silently excludes every candidate for
