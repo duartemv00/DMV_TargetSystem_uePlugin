@@ -277,16 +277,6 @@ a system that depends on them:
 - **Scan-based filters spawn+destroy an actor per candidate per call** (`SpawnActorToScan`) - fine
   at today's scale (nothing uses this plugin yet), worth profiling once a real consumer with many
   concurrent groups/candidates uses a scan-based filter.
-- **`UDMVTargetComponent` runs a 100Hz repeating timer for its entire lifetime, unconditionally.**
-  `BeginPlay` starts `InterestTimer` (`ResetInterest`, every `0.01f`) on every targetable actor the
-  moment it spawns, regardless of whether any registered context actually uses
-  `SingleTargetUseInterest` (the only selection mode that reads `Interest`) or whether this
-  component is currently a live candidate in anyone's finalist list. Every targetable actor in a
-  level pays this cost forever, whether or not Interest ever matters for it - unlike the other
-  gaps here, this one doesn't need a lot of concurrent targets to add up, just a lot of targetable
-  actors. Worth deciding when Interest should actually be live (always vs. only while registered
-  as a candidate vs. only while some active context uses `SingleTargetUseInterest`) before gating
-  it.
 - **`UpdateInterest` walks its `Finalists` list twice** - once for the cone-angle branch, once for
   the distance branch, when both `bUpdateInterestByConeAngle` and `bUpdateInterestByDistance` are
   enabled. Minor; could merge into one pass, but unlikely to matter at realistic finalist counts
@@ -294,6 +284,16 @@ a system that depends on them:
 
 ## Recent history
 
+- `UDMVTargetComponent` no longer runs its `InterestTimer` unconditionally for its entire
+  lifetime. Previously `BeginPlay` started a 100Hz repeating timer (`ResetInterest`, every
+  `0.01f`) on every targetable actor the moment it spawned, regardless of whether any registered
+  context actually used `SingleTargetUseInterest` (the only selection mode that reads `Interest`).
+  `Interest` is now private behind `GetInterest()`/`SetInterest()`; `SetInterest` (re)starts the
+  timer only when it raises `Interest` above `BaseInterest` and the timer isn't already running,
+  and `ResetInterest` stops its own timer once decay brings `Interest` back down to `BaseInterest`.
+  An actor that's never evaluated by a `SingleTargetUseInterest` context now never runs the timer
+  at all; one that is only pays the cost while actually elevated above baseline. `EndPlay` also now
+  explicitly clears the timer instead of leaving it to the engine's destroyed-object safety net.
 - `AnalyseTargetGroups` built its per-tick candidate list with `AddUnique` instead of `Add`, even
   though the source array (`FPlayerTargetList::TargetsArray`) is already guaranteed unique -
   `AddTarget` checks a `TSet` before ever inserting into it. `AddUnique`'s O(n) per-insert scan

@@ -58,13 +58,13 @@ void UDMVTargetEvaluator::UpdateInterest(
 				
 			if (FinalistTargetAngle < MaxAngleToGainInterest && FinalistTargetAngle < ClosestAngle)
 			{
-				Candidate_Target->Interest = UKismetMathLibrary::Clamp(
-					Candidate_Target->Interest + InterestWinWhileInAngle, Candidate_Target->BaseInterest, 100);
+				Candidate_Target->SetInterest(UKismetMathLibrary::Clamp(
+					Candidate_Target->GetInterest() + InterestWinWhileInAngle, Candidate_Target->BaseInterest, 100));
 				ClosestAngle = FinalistTargetAngle;
 			} else
 			{
-				Candidate_Target->Interest = UKismetMathLibrary::Clamp(
-					Candidate_Target->Interest - InterestLostWhileOutAngle, Candidate_Target->BaseInterest, 100);
+				Candidate_Target->SetInterest(UKismetMathLibrary::Clamp(
+					Candidate_Target->GetInterest() - InterestLostWhileOutAngle, Candidate_Target->BaseInterest, 100));
 			}
 		}
 	}
@@ -83,13 +83,13 @@ void UDMVTargetEvaluator::UpdateInterest(
 				
 			if (DistanceToTarget < MaxDistanceToGainInterest && DistanceToTarget < ClosestDistance)
 			{
-				Candidate_Target->Interest = UKismetMathLibrary::Clamp(
-					Candidate_Target->Interest + InterestWinInDistance, Candidate_Target->BaseInterest, 100);
+				Candidate_Target->SetInterest(UKismetMathLibrary::Clamp(
+					Candidate_Target->GetInterest() + InterestWinInDistance, Candidate_Target->BaseInterest, 100));
 				ClosestDistance = DistanceToTarget;
 			} else
 			{
-				Candidate_Target->Interest = UKismetMathLibrary::Clamp(
-					Candidate_Target->Interest - InterestLoseOutDistance, Candidate_Target->BaseInterest, 100);
+				Candidate_Target->SetInterest(UKismetMathLibrary::Clamp(
+					Candidate_Target->GetInterest() - InterestLoseOutDistance, Candidate_Target->BaseInterest, 100));
 			}
 		}
 	}
@@ -165,9 +165,9 @@ void UDMVTargetEvaluator::AnalyseTargetGroups()
 				UpdateInterest(CandidatesTargetComponents, PlayerViewLocation, PlayerViewDirection);
 				for (UDMVTargetComponent* Candidate : CandidatesTargetComponents)
 				{
-					if (Candidate->Interest >= HighestInterest)
+					if (Candidate->GetInterest() >= HighestInterest)
 					{
-						HighestInterest = Candidate->Interest;
+						HighestInterest = Candidate->GetInterest();
 						SelectedTargetComponent = Candidate;
 					}
 				}

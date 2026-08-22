@@ -24,8 +24,6 @@ void UDMVTargetComponent::BeginPlay()
 			= GameInstance->GetSubsystem<UDMVTargetSubsystem>())
 		{
 			TargetSubsystem->RegisterTargetForContexts(this, TargetContextIdentifiers);
-
-			GetWorld()->GetTimerManager().SetTimer(InterestTimer, this, &UDMVTargetComponent::ResetInterest, .01f, true);
 		}
 	}
 }
@@ -33,6 +31,8 @@ void UDMVTargetComponent::BeginPlay()
 void UDMVTargetComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	Super::EndPlay(EndPlayReason);
+
+	GetWorld()->GetTimerManager().ClearTimer(InterestTimer);
 
 	if (const UGameInstance* GameInstance = GetOwner()->GetGameInstance())
 	{
@@ -44,8 +44,27 @@ void UDMVTargetComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	}
 }
 
+void UDMVTargetComponent::SetInterest(float NewInterest)
+{
+	Interest = NewInterest;
+
+	if (Interest > BaseInterest)
+	{
+		FTimerManager& TimerManager = GetWorld()->GetTimerManager();
+		if (!TimerManager.IsTimerActive(InterestTimer))
+		{
+			TimerManager.SetTimer(InterestTimer, this, &UDMVTargetComponent::ResetInterest, .01f, true);
+		}
+	}
+}
+
 void UDMVTargetComponent::ResetInterest()
 {
-	Interest = UKismetMathLibrary::Clamp(Interest - 0.01f, BaseInterest, 100.f);	
+	Interest = UKismetMathLibrary::Clamp(Interest - 0.01f, BaseInterest, 100.f);
+
+	if (Interest <= BaseInterest)
+	{
+		GetWorld()->GetTimerManager().ClearTimer(InterestTimer);
+	}
 }
 

@@ -21,9 +21,16 @@ public:
 // INTEREST //
 	UPROPERTY(EditAnywhere)
 	float BaseInterest = .0f;
-	UPROPERTY()
-	float Interest = .0f;
-	FTimerHandle InterestTimer;
+
+	/** Current Interest score - see the per-usage Interest concept in the plugin README. */
+	float GetInterest() const { return Interest; }
+
+	/** Sets Interest to an already-clamped value (the evaluator computes the clamp itself against
+	 *  BaseInterest/100). (Re)starts the decay timer if this raises Interest above BaseInterest and
+	 *  it isn't already running - ResetInterest stops the timer again once decay brings Interest
+	 *  back down to BaseInterest, so the timer only runs while there's actually something to decay
+	 *  instead of unconditionally for this component's entire lifetime. */
+	void SetInterest(float NewInterest);
 
 protected:
 	virtual void BeginPlay() override;
@@ -31,9 +38,13 @@ protected:
 
 	UFUNCTION()
 	void ResetInterest();
-	
+
 	/** Here you can add to which context the object belongs */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Targeting", 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Targeting",
 		meta=(Categories="ID.TargetGroup"))
 	FGameplayTagContainer TargetContextIdentifiers;
+
+private:
+	float Interest = .0f;
+	FTimerHandle InterestTimer;
 };
