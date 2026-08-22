@@ -277,6 +277,27 @@ a system that depends on them:
 - **Scan-based filters spawn+destroy an actor per candidate per call** (`SpawnActorToScan`) - fine
   at today's scale (nothing uses this plugin yet), worth profiling once a real consumer with many
   concurrent groups/candidates uses a scan-based filter.
+- **`AnalyseTargetGroups` rebuilds its per-tick candidate list with `AddUnique` instead of `Add`**
+  (`DMVTargetEvaluator.cpp`, the loop over `GetTargetsForContext`'s result). This is pure waste,
+  not a scale-dependent gap like the others above: `FPlayerTargetList` already guarantees
+  `TargetsArray` is unique (`AddTarget` checks a `TSet` before ever inserting), so the array handed
+  back by `GetTargetsForContext` is already deduplicated. `AddUnique`'s O(n) per-insert scan turns
+  an O(n) copy into an O(n²) one, every tick, for every active `TargetGroup`, for no behavioral
+  benefit - safe to change to a plain `Add`.
+- **`UDMVTargetComponent` runs a 100Hz repeating timer for its entire lifetime, unconditionally.**
+  `BeginPlay` starts `InterestTimer` (`ResetInterest`, every `0.01f`) on every targetable actor the
+  moment it spawns, regardless of whether any registered context actually uses
+  `SingleTargetUseInterest` (the only selection mode that reads `Interest`) or whether this
+  component is currently a live candidate in anyone's finalist list. Every targetable actor in a
+  level pays this cost forever, whether or not Interest ever matters for it - unlike the other
+  gaps here, this one doesn't need a lot of concurrent targets to add up, just a lot of targetable
+  actors. Worth deciding when Interest should actually be live (always vs. only while registered
+  as a candidate vs. only while some active context uses `SingleTargetUseInterest`) before gating
+  it.
+- **`UpdateInterest` walks its `Finalists` list twice** - once for the cone-angle branch, once for
+  the distance branch, when both `bUpdateInterestByConeAngle` and `bUpdateInterestByDistance` are
+  enabled. Minor; could merge into one pass, but unlikely to matter at realistic finalist counts
+  compared to the two gaps above.
 
 ## Recent history
 
