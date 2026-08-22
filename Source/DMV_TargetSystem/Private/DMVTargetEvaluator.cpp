@@ -335,6 +335,24 @@ void UDMVTargetEvaluator::SetCurrentTargets(const FGameplayTag& ContextIdentifie
 		return;
 	}
 
+	// Only broadcast OnValidTargetFound for actors that weren't already this context's target -
+	// otherwise it'd fire every tick a group simply re-confirms the same target(s).
+	if (const UTargetGroup* TargetGroup = FindActiveTargetGroup(ContextIdentifier))
+	{
+		const TArray<TWeakObjectPtr<UDMVTargetComponent>>* PreviousTargets = CurrentTargetsMap.Find(ContextIdentifier);
+		for (const TWeakObjectPtr<UDMVTargetComponent>& WeakTarget : WeakTargets)
+		{
+			if (PreviousTargets && PreviousTargets->Contains(WeakTarget))
+			{
+				continue;
+			}
+			if (UDMVTargetComponent* Target = WeakTarget.Get())
+			{
+				TargetGroup->OnValidTargetFound.ExecuteIfBound(Target->GetOwner());
+			}
+		}
+	}
+
 	CurrentTargetsMap.Add(ContextIdentifier, MoveTemp(WeakTargets));
 
 	UE_LOG(LogTemp, Warning, TEXT("New target(s) of %s: %d"), *ContextIdentifier.ToString(), Targets.Num());
@@ -342,7 +360,15 @@ void UDMVTargetEvaluator::SetCurrentTargets(const FGameplayTag& ContextIdentifie
 
 void UDMVTargetEvaluator::ClearCurrentTarget(const FGameplayTag& ContextIdentifier)
 {
-	CurrentTargetsMap.Remove(ContextIdentifier);
+	// Remove() returns how many entries were actually removed - only broadcast OnTargetCleared on
+	// the non-empty-to-empty transition, not every tick an already-empty group gets cleared again.
+	if (CurrentTargetsMap.Remove(ContextIdentifier) > 0)
+	{
+		if (const UTargetGroup* TargetGroup = FindActiveTargetGroup(ContextIdentifier))
+		{
+			TargetGroup->OnTargetCleared.ExecuteIfBound();
+		}
+	}
 }
 
 void UDMVTargetEvaluator::ClearAllCurrentTargets()
@@ -366,5 +392,17 @@ bool UDMVTargetEvaluator::AddTargetEvaluationContext_Internal(UTargetGroup* Targ
 	}
 	ActiveTargetGroups.Add(TargetEvaluationContext);
 	return true;
+}
+
+UTargetGroup* UDMVTargetEvaluator::FindActiveTargetGroup(const FGameplayTag& ContextIdentifier) const
+{
+	for (UTargetGroup* TargetGroup : ActiveTargetGroups)
+	{
+		if (IsValid(TargetGroup) && TargetGroup->TargetGroupID == ContextIdentifier)
+		{
+			return TargetGroup;
+		}
+	}
+	return nullptr;
 }
 

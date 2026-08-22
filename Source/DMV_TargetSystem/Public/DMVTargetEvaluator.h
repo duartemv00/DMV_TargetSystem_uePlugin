@@ -87,8 +87,12 @@ public:
 	 *  (e.g. pulled from a UDMVTargetFilter_Data asset shared across multiple contexts) are never
 	 *  mutated or shared, and each usage of a filter class gets its own independently-configured
 	 *  copy of that class's properties (Threshold, ScanClass, and anything a Blueprint subclass
-	 *  adds). */
-	UFUNCTION(BlueprintCallable, meta=(AutoCreateRefTerm="TargetGroupID"))
+	 *  adds).
+	 *
+	 *  Not Blueprint-exposed - AddTargetEvaluationContextFromData is the Blueprint entry point, so
+	 *  every Blueprint caller goes through one workflow (a UDMVTargetFilter_Data preset asset)
+	 *  instead of choosing between two. C++ callers that already have configured filter instances
+	 *  in hand can still call this directly. */
 	UTargetGroup* AddTargetEvaluationContext(
 		UPARAM(meta=(Categories="ID.TargetGroup")) const FGameplayTag& TargetGroupID,
 		const TArray<UDMVTargetFilter_Base*>& FiltersForTheContext,
@@ -180,6 +184,11 @@ private:
 
 	/** Internal method to handle adding a target evaluation context to the active set. */
 	bool AddTargetEvaluationContext_Internal(UTargetGroup* TargetEvaluationContext);
+
+	/** Finds the active TARGET GROUP for a context, or nullptr if none is registered under that
+	 * identifier. Used to reach a group's delegates from the ContextIdentifier-only Set/Clear
+	 * helpers below. */
+	UTargetGroup* FindActiveTargetGroup(const FGameplayTag& ContextIdentifier) const;
 
 	/** Reference to the subsystem which manages the list of targets. */
 	TWeakObjectPtr<UDMVTargetSubsystem> PlayerAutoTargetManagerSubsystem;

@@ -260,16 +260,13 @@ anything.
 These are real, currently-true limitations - not hypotheticals - worth resolving before building
 a system that depends on them:
 
-- **`OnValidTargetFound`/`OnTargetCleared` are declared but never broadcast.** `SetCurrentTarget`/
-  `SetCurrentTargets`/`ClearCurrentTarget` update `CurrentTargetsMap` but don't fire either
-  delegate - the only way to know the current target today is polling `GetCurrentTarget(s)` every
-  tick. Wiring this up properly needs: (a) diffing the previous vs. new target set per group so
-  "found" only fires for actors that are newly present (not every tick the group re-evaluates to
-  the same answer), and (b) a decision on `MultiTarget` semantics - `OnValidTargetFound` is a
-  single-`AActor*` delegate (fine to broadcast once per newly-found actor) but
-  `OnTargetCleared`/`FPlayerAutoTargetsCleared` takes no params at all, so as currently typed it
-  can only mean "the group has no target(s) left," not "this one target was cleared but others
-  remain" - that'd need a new delegate type to express per-actor loss for `MultiTarget` groups.
+- **`OnTargetCleared` can't express partial loss in a `MultiTarget` group.** `FPlayerAutoTargetsCleared`
+  takes no params, so `SetCurrentTargets`/`ClearCurrentTarget` can only broadcast it to mean "this
+  group now has zero targets" (fired once, on the non-empty-to-empty transition - see Recent
+  history). For a `MultiTarget` group that loses one of several targets while others remain,
+  nothing fires today - there's no "this one target was lost" signal. Left this way deliberately
+  for now; revisit with a new delegate type (e.g. one that reports which target dropped) if a
+  `MultiTarget` consumer actually needs per-actor loss notifications.
 - **No proximity/candidate-count culling.** `GetTargetsForContext` returns every
   `UDMVTargetComponent` ever registered under that tag - there's no spatial partitioning or range
   cap before candidates reach the Filters. Fine at small scale; worth revisiting (e.g. a spatial
@@ -282,6 +279,16 @@ a system that depends on them:
   concurrent groups/candidates uses a scan-based filter.
 
 ## Recent history
+
+- `OnValidTargetFound`/`OnTargetCleared` are now actually broadcast (previously declared and
+  assigned but never fired - polling `GetCurrentTarget(s)` was the only way to know the current
+  target). `SetCurrentTargets` diffs the incoming target set against the previous one and fires
+  `OnValidTargetFound` only for actors that weren't already this context's target, so it doesn't
+  re-fire every tick a group simply re-confirms the same target(s); `ClearCurrentTarget` fires
+  `OnTargetCleared` only on the transition from having a target to having none, not on every tick
+  an already-empty group gets cleared again. `OnTargetCleared` stays group-level/no-params by
+  design - see [Known gaps](#known-gaps--open-design-questions) above for the `MultiTarget`
+  partial-loss limitation this leaves open.
 
 This plugin had a few latent bugs and some dead code cleaned up alongside implementing
 `MultiTarget` (previously an unimplemented stub):
