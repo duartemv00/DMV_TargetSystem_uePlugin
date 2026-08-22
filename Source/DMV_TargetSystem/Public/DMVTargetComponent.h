@@ -32,6 +32,10 @@ public:
 	 *  instead of unconditionally for this component's entire lifetime. */
 	void SetInterest(float NewInterest);
 
+	/** This component's registered target-context tags. Used by UDMVTargetSubsystem's spatial grid
+	 *  query to confirm a spatially-nearby candidate actually belongs to the tag being queried. */
+	const FGameplayTagContainer& GetTargetContextIdentifiers() const { return TargetContextIdentifiers; }
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;

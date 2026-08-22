@@ -44,7 +44,16 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	ENumberOfTargets NumberOfTargets = ENumberOfTargets::SingleTarget;
-	
+
+	/** Optional proximity cull, applied before candidates reach Filters: a candidate farther than
+	 *  this from the player's view location is dropped without ever running this group's Filters
+	 *  on it. <= 0 (the default) means no culling - every target registered under TargetGroupID is
+	 *  passed to Filters, same as before this property existed. Culling is done via
+	 *  UDMVTargetSubsystem's spatial grid rather than a plain distance check over every registered
+	 *  target - see GetTargetsForContext. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	float MaxCullDistance = 0.f;
+
 	UPROPERTY()
 	FValidPlayerAutoTargetFound OnValidTargetFound;
 	UPROPERTY()
@@ -99,7 +108,8 @@ public:
 		ENumberOfTargets NumberOfTargets,
 		FValidPlayerAutoTargetFound OnValidTargetFound,
 		FPlayerAutoTargetsCleared OnTargetCleared,
-		FFilteringFinished OnFilteringFinished);
+		FFilteringFinished OnFilteringFinished,
+		float MaxCullDistance = 0.f);
 
 	/** Convenience wrapper over AddTargetEvaluationContext that takes a UDMVTargetFilter_Data
 	 *  asset's FilterList instead of a raw filter array - lets a designer author a reusable filter
@@ -111,7 +121,8 @@ public:
 		ENumberOfTargets NumberOfTargets,
 		FValidPlayerAutoTargetFound OnValidTargetFound,
 		FPlayerAutoTargetsCleared OnTargetCleared,
-		FFilteringFinished OnFilteringFinished);
+		FFilteringFinished OnFilteringFinished,
+		float MaxCullDistance = 0.f);
 
 	/** REMOVE a TARGET GROUP so that it will no longer be evaluated by this component. */
 	UFUNCTION(BlueprintCallable, meta=(AutoCreateRefTerm="TargetGroupID"))

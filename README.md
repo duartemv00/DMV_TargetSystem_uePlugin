@@ -225,6 +225,31 @@ Call `Evaluator->AddTargetEvaluationContextFromData(GroupTag, FilterDataAsset, N
 `FilterData->FilterList` the same way the base function duplicates any other filter array, so the
 same asset stays a safe, unmutated template no matter how many contexts pull from it.
 
+### Proximity culling
+
+By default, every target registered under a context tag reaches that `UTargetGroup`'s Filters,
+every tick - fine at small scale, but every registered target then pays whatever cost the Filters
+chain has (a scan-based filter is the extreme case, see [above](#filters)), even ones nowhere near
+the player. `AddTargetEvaluationContext`/`AddTargetEvaluationContextFromData`'s optional trailing
+`MaxCullDistance` parameter (default `0.f`, meaning no culling - identical behavior to before this
+parameter existed) drops a candidate before it ever reaches Filters if it's farther than that from
+the player's view location.
+
+Culling isn't a plain per-candidate distance check, because that would still mean touching every
+registered target under the tag once per query - the same cost it's meant to avoid. Instead,
+`UDMVTargetSubsystem::GetTargetsForContext` maintains a spatial hash grid (`SpatialGrid`, bucketed
+by `SpatialGridCellSize`, default 500cm cells) over every registered target regardless of tag. A
+radius query only walks the grid cells overlapping the query sphere, then filters that (usually
+much smaller) set down by tag and exact distance - so the cost scales with how many targets are
+actually near the query point, not with how many are registered under the tag in total. The
+tradeoff: the grid is rebucketed periodically (`SpatialGridRebuildInterval`, default `0.1f`
+seconds) rather than every tick, since rebuilding it requires touching every registered target's
+current location anyway - a moving target can be positionally stale by up to that interval before
+a query reflects its new cell. Neither the grid nor its rebuild timer exist until the first caller
+actually passes `MaxCullDistance > 0.f` - a context that never culls pays nothing extra, and
+`GetTargetsForContext` falls back to returning every registered target for the tag exactly as it
+did before culling existed.
+
 ## Integrating it into a project
 
 1. Add a `UDMVTargetEvaluator` component to your `PlayerController` Blueprint/class. It
@@ -267,13 +292,6 @@ a system that depends on them:
   nothing fires today - there's no "this one target was lost" signal. Left this way deliberately
   for now; revisit with a new delegate type (e.g. one that reports which target dropped) if a
   `MultiTarget` consumer actually needs per-actor loss notifications.
-- **No proximity/candidate-count culling.** `GetTargetsForContext` returns every
-  `UDMVTargetComponent` ever registered under that tag - there's no spatial partitioning or range
-  cap before candidates reach the Filters. Fine at small scale; worth revisiting (e.g. a spatial
-  query before filtering) if a context ever accumulates a lot of simultaneously-registered
-  targets.
-- **`MultiTarget` has no built-in cap** (by design, see [Selection modes](#selection-modes-enumberoftargets)
-  above) - if you need a bounded count, build it into a Filter.
 - **Scan-based filters spawn+destroy an actor per candidate per call** (`SpawnActorToScan`) - fine
   at today's scale (nothing uses this plugin yet), worth profiling once a real consumer with many
   concurrent groups/candidates uses a scan-based filter.
@@ -284,6 +302,14 @@ a system that depends on them:
 
 ## Recent history
 
+- Added optional proximity culling - see [Proximity culling](#proximity-culling) above.
+  `GetTargetsForContext` previously always returned every `UDMVTargetComponent` registered under a
+  tag, with no spatial partitioning or range cap before candidates reached the Filters. It now
+  takes an optional query origin/radius and, when a radius is given, culls via a periodically
+  rebuilt spatial hash grid (`SpatialGrid`/`RebuildSpatialGrid`) instead of scanning every
+  registered target; `AddTargetEvaluationContext`/`AddTargetEvaluationContextFromData` expose this
+  per-context as `MaxCullDistance` (default `0.f`, meaning no culling - unchanged behavior for
+  every existing caller).
 - `UDMVTargetComponent` no longer runs its `InterestTimer` unconditionally for its entire
   lifetime. Previously `BeginPlay` started a 100Hz repeating timer (`ResetInterest`, every
   `0.01f`) on every targetable actor the moment it spawned, regardless of whether any registered

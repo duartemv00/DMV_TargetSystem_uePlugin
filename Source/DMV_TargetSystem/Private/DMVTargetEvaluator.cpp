@@ -129,10 +129,13 @@ void UDMVTargetEvaluator::AnalyseTargetGroups()
 	{
 		FGameplayTag TargetGroupIdentifier = TargetGroupToEvaluate->TargetGroupID;
 		
-		// Create & fill list of candidates target components
-		TArray<UDMVTargetComponent*> CandidatesTargetComponents; CandidatesTargetComponents.Empty();
-		for (const TWeakObjectPtr<UDMVTargetComponent> TargetComponent :
-			PlayerAutoTargetManagerSubsystem->GetTargetsForContext(TargetGroupToEvaluate->TargetGroupID))
+		// Create & fill list of candidates target components. A positive MaxCullDistance culls via
+		// the subsystem's spatial grid before Filters ever run; <= 0 (the default) fetches every
+		// target registered under this tag, same as before MaxCullDistance existed.
+		TArray<UDMVTargetComponent*> CandidatesTargetComponents;
+		for (const TWeakObjectPtr<UDMVTargetComponent>& TargetComponent :
+			PlayerAutoTargetManagerSubsystem->GetTargetsForContext(
+				TargetGroupToEvaluate->TargetGroupID, PlayerViewLocation, TargetGroupToEvaluate->MaxCullDistance))
 		{
 			CandidatesTargetComponents.Add(TargetComponent.Get());
 		}
@@ -206,7 +209,8 @@ UTargetGroup* UDMVTargetEvaluator::AddTargetEvaluationContext(
 	ENumberOfTargets NumberOfTargets,
 	FValidPlayerAutoTargetFound OnValidTargetFound,
 	FPlayerAutoTargetsCleared OnTargetCleared,
-	FFilteringFinished OnFilteringFinished
+	FFilteringFinished OnFilteringFinished,
+	float MaxCullDistance
 	)
 {
 	UTargetGroup* NewTargetEvaluationContext = NewObject<UTargetGroup>(this);
@@ -214,6 +218,8 @@ UTargetGroup* UDMVTargetEvaluator::AddTargetEvaluationContext(
 	NewTargetEvaluationContext->TargetGroupID = TargetGroupID;
 	// Selection mode
 	NewTargetEvaluationContext->NumberOfTargets = NumberOfTargets;
+	// Proximity cull
+	NewTargetEvaluationContext->MaxCullDistance = MaxCullDistance;
 	// Delegates
 	NewTargetEvaluationContext->OnValidTargetFound = OnValidTargetFound;
 	NewTargetEvaluationContext->OnTargetCleared = OnTargetCleared;
@@ -242,7 +248,8 @@ UTargetGroup* UDMVTargetEvaluator::AddTargetEvaluationContextFromData(
 	ENumberOfTargets NumberOfTargets,
 	FValidPlayerAutoTargetFound OnValidTargetFound,
 	FPlayerAutoTargetsCleared OnTargetCleared,
-	FFilteringFinished OnFilteringFinished
+	FFilteringFinished OnFilteringFinished,
+	float MaxCullDistance
 	)
 {
 	return AddTargetEvaluationContext(
@@ -251,7 +258,8 @@ UTargetGroup* UDMVTargetEvaluator::AddTargetEvaluationContextFromData(
 		NumberOfTargets,
 		OnValidTargetFound,
 		OnTargetCleared,
-		OnFilteringFinished);
+		OnFilteringFinished,
+		MaxCullDistance);
 }
 
 void UDMVTargetEvaluator::RemoveTargetEvaluationContext(const FGameplayTag& ContextIdentifier)
