@@ -277,13 +277,6 @@ a system that depends on them:
 - **Scan-based filters spawn+destroy an actor per candidate per call** (`SpawnActorToScan`) - fine
   at today's scale (nothing uses this plugin yet), worth profiling once a real consumer with many
   concurrent groups/candidates uses a scan-based filter.
-- **`AnalyseTargetGroups` rebuilds its per-tick candidate list with `AddUnique` instead of `Add`**
-  (`DMVTargetEvaluator.cpp`, the loop over `GetTargetsForContext`'s result). This is pure waste,
-  not a scale-dependent gap like the others above: `FPlayerTargetList` already guarantees
-  `TargetsArray` is unique (`AddTarget` checks a `TSet` before ever inserting), so the array handed
-  back by `GetTargetsForContext` is already deduplicated. `AddUnique`'s O(n) per-insert scan turns
-  an O(n) copy into an O(n²) one, every tick, for every active `TargetGroup`, for no behavioral
-  benefit - safe to change to a plain `Add`.
 - **`UDMVTargetComponent` runs a 100Hz repeating timer for its entire lifetime, unconditionally.**
   `BeginPlay` starts `InterestTimer` (`ResetInterest`, every `0.01f`) on every targetable actor the
   moment it spawns, regardless of whether any registered context actually uses
@@ -301,6 +294,11 @@ a system that depends on them:
 
 ## Recent history
 
+- `AnalyseTargetGroups` built its per-tick candidate list with `AddUnique` instead of `Add`, even
+  though the source array (`FPlayerTargetList::TargetsArray`) is already guaranteed unique -
+  `AddTarget` checks a `TSet` before ever inserting into it. `AddUnique`'s O(n) per-insert scan
+  turned an O(n) copy into an O(n²) one, every tick, for every active `TargetGroup`, for no
+  behavioral benefit. Fixed to a plain `Add`.
 - `OnValidTargetFound`/`OnTargetCleared` are now actually broadcast (previously declared and
   assigned but never fired - polling `GetCurrentTarget(s)` was the only way to know the current
   target). `SetCurrentTargets` diffs the incoming target set against the previous one and fires

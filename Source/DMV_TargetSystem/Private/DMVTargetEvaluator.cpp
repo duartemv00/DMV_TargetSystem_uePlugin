@@ -134,7 +134,7 @@ void UDMVTargetEvaluator::AnalyseTargetGroups()
 		for (const TWeakObjectPtr<UDMVTargetComponent> TargetComponent :
 			PlayerAutoTargetManagerSubsystem->GetTargetsForContext(TargetGroupToEvaluate->TargetGroupID))
 		{
-			CandidatesTargetComponents.AddUnique(TargetComponent.Get());
+			CandidatesTargetComponents.Add(TargetComponent.Get());
 		}
 		
 		ApplyFiltersToCandidates(TargetGroupToEvaluate, CandidatesTargetComponents);
