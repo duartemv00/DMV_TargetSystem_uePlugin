@@ -250,6 +250,22 @@ actually passes `MaxCullDistance > 0.f` - a context that never culls pays nothin
 `GetTargetsForContext` falls back to returning every registered target for the tag exactly as it
 did before culling existed.
 
+**Possible future option: physics-overlap-based proximity instead of a polling grid.** The grid
+still touches every registered target once per rebuild interval to find out where it currently is
+- there's no way to skip that within a polling design, since you can't know something is far away
+without ever checking its position. An alternative that avoids polling entirely: attach a large
+`USphereComponent` proximity trigger to each local player and let Unreal's physics broadphase
+(which already maintains its own optimized spatial structure) push
+`OnComponentBeginOverlap`/`OnComponentEndOverlap` events when a targetable actor's collision
+enters/exits range, instead of us scanning for it. The subsystem would maintain a per-player
+"currently nearby" set purely from those events - zero cost for anything outside the sphere between
+crossings, and no periodic scan at all. Tradeoff: it requires every targetable actor to carry a
+collision component on a dedicated trace channel plus a sphere trigger per local player (more setup
+surface than the grid), and overlap events are binary ("in range" or not, not a distance), so a
+`MaxCullDistance`-style radius would still need a secondary distance check over the now much
+smaller overlapping set. Not worth building without evidence the polling grid is an actual
+bottleneck - noted here as the answer if that evidence shows up.
+
 ## Integrating it into a project
 
 1. Add a `UDMVTargetEvaluator` component to your `PlayerController` Blueprint/class. It
