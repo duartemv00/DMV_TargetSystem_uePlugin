@@ -1,8 +1,8 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
-#include "DMVTargetFilterDataCustomization.h"
+#include "DMV_TargetFilterDataCustomization.h"
 #include "DetailLayoutBuilder.h"
-#include "Filters/DMVTargetFilter_Base.h"
+#include "Filters/DMV_TargetFilter_Base.h"
 #include "IDetailsView.h"
 #include "PropertyEditorDelegates.h"
 

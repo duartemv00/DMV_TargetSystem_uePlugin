@@ -1,8 +1,8 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "DMV_TargetSystemEditor.h"
-#include "DMVTargetFilterDataCustomization.h"
-#include "Filters/DMVTargetFilter_Data.h"
+#include "DMV_TargetFilterDataCustomization.h"
+#include "Filters/DMV_TargetFilter_Data.h"
 #include "PropertyEditorModule.h"
 
 #define LOCTEXT_NAMESPACE "FDMV_TargetSystemEditorModule"

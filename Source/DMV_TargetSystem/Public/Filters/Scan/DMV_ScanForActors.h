@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
-#include "DMVScanForActors.generated.h"
+#include "DMV_ScanForActors.generated.h"
 
 UCLASS(Abstract)
 class DMV_TARGETSYSTEM_API ADMVScanForActors : public AActor

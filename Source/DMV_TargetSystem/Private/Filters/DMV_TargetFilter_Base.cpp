@@ -1,7 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 
-#include "../../Public/Filters/DMVTargetFilter_Base.h"
+#include "../../Public/Filters/DMV_TargetFilter_Base.h"
 
 bool UDMVTargetFilter_Base::SpawnActorToScan(APlayerController* PlayerController, UDMVTargetComponent* Target)
 {

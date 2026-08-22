@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameplayTagContainer.h"
 #include "Components/SceneComponent.h"
-#include "DMVTargetComponent.generated.h"
+#include "DMV_TargetComponent.generated.h"
 
 /**
  * Scene Component which registers as a potential target for player auto-targeting. Derived classes can be created with additional functionality.

@@ -4,10 +4,10 @@
 
 #include "CoreMinimal.h"
 #include "GameplayTagContainer.h"
-#include "DMVTargetSubsystem.h"
+#include "DMV_TargetSubsystem.h"
 #include "Components/ActorComponent.h"
-#include "Filters/DMVTargetFilter_Base.h"
-#include "DMVTargetEvaluator.generated.h"
+#include "Filters/DMV_TargetFilter_Base.h"
+#include "DMV_TargetEvaluator.generated.h"
 
 class UDMVTargetFilter_Data;
 

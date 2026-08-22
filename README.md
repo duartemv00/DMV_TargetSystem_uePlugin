@@ -318,6 +318,16 @@ a system that depends on them:
 
 ## Recent history
 
+- Renamed every source file in both modules to consistently start with `DMV_`:
+  `DMVTargetComponent.h/.cpp` -> `DMV_TargetComponent.h/.cpp`, `DMVTargetEvaluator.h/.cpp` ->
+  `DMV_TargetEvaluator.h/.cpp`, `DMVTargetSubsystem.h/.cpp` -> `DMV_TargetSubsystem.h/.cpp`,
+  `DMVTargetFilter_Base.h/.cpp` -> `DMV_TargetFilter_Base.h/.cpp`, `DMVTargetFilter_Data.h` ->
+  `DMV_TargetFilter_Data.h`, `DMVScanForActors.h/.cpp` -> `DMV_ScanForActors.h/.cpp`, and
+  (in `DMV_TargetSystemEditor`) `DMVTargetFilterDataCustomization.h/.cpp` ->
+  `DMV_TargetFilterDataCustomization.h/.cpp`. File names only - the classes inside
+  (`UDMVTargetComponent`, `UDMVTargetEvaluator`, etc.) keep their existing names, since renaming
+  those would need `ClassRedirects` for every Blueprint filter/PlayerController content already
+  referencing them, and only the file naming was asked for.
 - Added optional proximity culling - see [Proximity culling](#proximity-culling) above.
   `GetTargetsForContext` previously always returned every `UDMVTargetComponent` registered under a
   tag, with no spatial partitioning or range cap before candidates reached the Filters. It now

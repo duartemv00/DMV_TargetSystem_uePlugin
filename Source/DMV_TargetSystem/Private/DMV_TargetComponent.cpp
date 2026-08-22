@@ -1,8 +1,8 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 
-#include "../Public/DMVTargetComponent.h"
-#include "../Public/DMVTargetSubsystem.h"
+#include "../Public/DMV_TargetComponent.h"
+#include "../Public/DMV_TargetSubsystem.h"
 #include "Kismet/KismetMathLibrary.h"
 
 

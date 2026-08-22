@@ -3,9 +3,9 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "DMVTargetFilter_Base.h"
+#include "DMV_TargetFilter_Base.h"
 #include "Engine/DataAsset.h"
-#include "DMVTargetFilter_Data.generated.h"
+#include "DMV_TargetFilter_Data.generated.h"
 
 /**
  * This class is used so designers don't have to use the main character controller to set new filters

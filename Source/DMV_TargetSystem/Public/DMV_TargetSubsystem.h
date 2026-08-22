@@ -3,9 +3,9 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "DMVTargetComponent.h"
+#include "DMV_TargetComponent.h"
 #include "Subsystems/GameInstanceSubsystem.h"
-#include "DMVTargetSubsystem.generated.h"
+#include "DMV_TargetSubsystem.generated.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogPlayerTargetEval, Log, All);
 

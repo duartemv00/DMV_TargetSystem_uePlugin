@@ -3,9 +3,9 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Scan/DMVScanForActors.h"
+#include "Scan/DMV_ScanForActors.h"
 #include "UObject/Object.h"
-#include "DMVTargetFilter_Base.generated.h"
+#include "DMV_TargetFilter_Base.generated.h"
 
 /**
  * 
