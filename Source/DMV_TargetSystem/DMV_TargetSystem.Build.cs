@@ -24,6 +24,7 @@ public class DMV_TargetSystem : ModuleRules
 			new string[]
 			{
 				"Core",
+				"Engine",
 			}
 			);
 			
@@ -32,7 +33,6 @@ public class DMV_TargetSystem : ModuleRules
 			new string[]
 			{
 				"CoreUObject",
-				"Engine",
 				"Slate",
 				"SlateCore",
 				"Niagara",

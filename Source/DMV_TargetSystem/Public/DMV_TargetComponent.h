@@ -5,7 +5,23 @@
 #include "CoreMinimal.h"
 #include "GameplayTagContainer.h"
 #include "Components/SceneComponent.h"
+#include "Components/PrimitiveComponent.h"
+#include "Components/MeshComponent.h"
 #include "DMV_TargetComponent.generated.h"
+
+/** Where a target's visibility/line-of-sight checks should sample from, instead of always
+ *  using this component's own single-point transform. See the plugin README's Visibility
+ *  section for the rationale. */
+UENUM(BlueprintType)
+enum class EDMVTargetVisibilitySource : uint8
+{
+	/** Default, unchanged behavior: a single point at GetComponentLocation(). */
+	Point,
+	/** An explicit shape the actor author placed and configured (see VisibilityProxy). */
+	ProxyCollision,
+	/** Reuse the owning actor's existing mesh collision - no extra shape needed. */
+	OwnerMeshCollision
+};
 
 /**
  * Scene Component which registers as a potential target for player auto-targeting. Derived classes can be created with additional functionality.
@@ -17,6 +33,39 @@ class DMV_TARGETSYSTEM_API UDMVTargetComponent : public USceneComponent
 
 public:
 	UDMVTargetComponent();
+
+// VISIBILITY //
+	/** How PerformScan-style visibility/line-of-sight checks should sample this target.
+	 *  Defaults to Point, which is exactly today's behavior. */
+	UPROPERTY(EditAnywhere, Category="Targeting|Visibility")
+	EDMVTargetVisibilitySource VisibilitySource = EDMVTargetVisibilitySource::Point;
+
+	/** Only used when VisibilitySource is ProxyCollision. The actor author places and
+	 *  configures this shape themselves (QueryOnly, ignoring every channel except whichever
+	 *  trace channel the line-of-sight scan uses) - this component only references it, it
+	 *  does not spawn or own it. */
+	UPROPERTY(EditAnywhere, Category="Targeting|Visibility",
+		meta=(EditCondition="VisibilitySource==EDMVTargetVisibilitySource::ProxyCollision"))
+	TObjectPtr<UPrimitiveComponent> VisibilityProxy;
+
+	/** Only used when VisibilitySource is OwnerMeshCollision, and only needed for actors with
+	 *  more than one mesh component where auto-resolving would be ambiguous. Leave null to
+	 *  auto-resolve via GetOwner()->FindComponentByClass<UMeshComponent>(). */
+	UPROPERTY(EditAnywhere, Category="Targeting|Visibility",
+		meta=(EditCondition="VisibilitySource==EDMVTargetVisibilitySource::OwnerMeshCollision"))
+	TObjectPtr<UMeshComponent> VisibilityMeshOverride;
+
+	/** Resolves the shape driving visibility checks per VisibilitySource, or nullptr in Point
+	 *  mode (or if OwnerMeshCollision can't find a mesh to use). */
+	UFUNCTION(BlueprintCallable, Category="Targeting|Visibility")
+	UPrimitiveComponent* ResolveVisibilityComponent() const;
+
+	/** World-space sample points a line-of-sight scan should trace against: just
+	 *  GetComponentLocation() in Point mode (or if no visibility component resolves), or the
+	 *  center/top/bottom/left/right of the resolved component's bounds otherwise. Visible if
+	 *  ANY returned point is unobstructed. */
+	UFUNCTION(BlueprintCallable, Category="Targeting|Visibility")
+	TArray<FVector> GetVisibilityTracePoints() const;
 
 // INTEREST //
 	UPROPERTY(EditAnywhere)

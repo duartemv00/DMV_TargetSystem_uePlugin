@@ -68,3 +68,48 @@ void UDMVTargetComponent::ResetInterest()
 	}
 }
 
+UPrimitiveComponent* UDMVTargetComponent::ResolveVisibilityComponent() const
+{
+	switch (VisibilitySource)
+	{
+	case EDMVTargetVisibilitySource::ProxyCollision:
+		return VisibilityProxy;
+
+	case EDMVTargetVisibilitySource::OwnerMeshCollision:
+		if (VisibilityMeshOverride)
+		{
+			return VisibilityMeshOverride;
+		}
+		if (const AActor* Owner = GetOwner())
+		{
+			return Owner->FindComponentByClass<UMeshComponent>();
+		}
+		return nullptr;
+
+	case EDMVTargetVisibilitySource::Point:
+	default:
+		return nullptr;
+	}
+}
+
+TArray<FVector> UDMVTargetComponent::GetVisibilityTracePoints() const
+{
+	const UPrimitiveComponent* VisibilityComponent = ResolveVisibilityComponent();
+	if (VisibilityComponent == nullptr)
+	{
+		return { GetComponentLocation() };
+	}
+
+	const FBoxSphereBounds Bounds = VisibilityComponent->Bounds;
+	const FVector Origin = Bounds.Origin;
+	const FVector Extent = Bounds.BoxExtent;
+
+	return {
+		Origin,
+		Origin + FVector(0.f, 0.f, Extent.Z),
+		Origin - FVector(0.f, 0.f, Extent.Z),
+		Origin + FVector(0.f, Extent.Y, 0.f),
+		Origin - FVector(0.f, Extent.Y, 0.f)
+	};
+}
+
