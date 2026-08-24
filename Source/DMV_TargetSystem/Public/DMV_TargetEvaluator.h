@@ -95,8 +95,7 @@ public:
 	 *  duplicated into the resulting UTargetGroup's own ownership - the caller's source instances
 	 *  (e.g. pulled from a UDMVTargetFilter_Data asset shared across multiple contexts) are never
 	 *  mutated or shared, and each usage of a filter class gets its own independently-configured
-	 *  copy of that class's properties (Threshold, ScanClass, and anything a Blueprint subclass
-	 *  adds).
+	 *  copy of that class's properties (ScanClass, and anything a Blueprint subclass adds).
 	 *
 	 *  Not Blueprint-exposed - AddTargetEvaluationContextFromData is the Blueprint entry point, so
 	 *  every Blueprint caller goes through one workflow (a UDMVTargetFilter_Data preset asset)

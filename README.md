@@ -126,15 +126,16 @@ filter's output.
 
 Filter instances are individually configured, not shared per class. Because
 `UDMVTargetFilter_Base` is `EditInlineNew`/`Blueprintable`, a Blueprint child (e.g.
-`BP_TargetFilter_ViewCone`) can add its own properties beyond the base `Threshold` (a `MaxAngle`,
-a `TargetTag` to require, whatever that filter needs) - that part of the class hierarchy already
+`BP_TargetFilter_ViewCone`) can add its own properties (a `MaxAngle`, a `TargetTag` to require,
+whatever that filter needs - the base class no longer has a generic `Threshold` field, each
+filter defines whatever comparison value(s) it actually needs) - that part of the class hierarchy already
 worked before this change. What didn't work is *reusing the same filter class with different
 settings in two different contexts*: `AddTargetEvaluationContext` used to take a plain
 `TSubclassOf<UDMVTargetFilter_Base>` + one generic `float Value`, so every usage of a class got
 identical property values.
 
 Now `AddTargetEvaluationContext` takes `const TArray<UDMVTargetFilter_Base*>&` - actual
-pre-configured instances, each with whatever `Threshold`/custom properties you set on it - and
+pre-configured instances, each with whatever custom properties you set on it - and
 **duplicates each one** (`DuplicateObject`) into the new `UTargetGroup`'s own ownership. That
 means:
 
@@ -158,8 +159,8 @@ that aren't `EditDefaultsOnly` - no custom "exposed" flag or category scheme nee
 the standard `EditAnywhere`/`EditInstanceOnly` vs. `EditDefaultsOnly` distinction:
 
 - **`EditAnywhere` (or `EditInstanceOnly`)** - shows up on every per-usage instance, so use it for
-  anything that's meant to vary per context: `Threshold`, and any property a Blueprint subclass
-  adds that a specific usage should be able to tune (a `MaxAngle`, a required tag, etc.). Prefer
+  anything that's meant to vary per context: any property a Blueprint subclass adds that a
+  specific usage should be able to tune (a `MaxAngle`, a required tag, etc.). Prefer
   `EditAnywhere` over `EditInstanceOnly` when a sensible shared starting value exists (it's then
   also settable as that filter class's own default, so a fresh instance doesn't start at a bare
   `0`/`nullptr`); use `EditInstanceOnly` only if the property should never have a class-level
@@ -318,6 +319,13 @@ a system that depends on them:
 
 ## Recent history
 
+- Removed `UDMVTargetFilter_Base::Threshold`. It was a single generic `float` meant to cover
+  "distance, angle, health amount, etc." for every filter, but every filter subclass can already
+  add its own properly-named, properly-typed `EditAnywhere` variables (a `MaxAngle`, a
+  `MaxDistance`) per the [per-usage tunable convention](#convention-which-properties-should-be-per-usage-tunable)
+  above - `Threshold` was redundant with that, and being generic/unlabeled made it easy to
+  confuse across filters that each meant something different by it. Confirmed unused by every
+  filter Blueprint in this plugin's own `FilterLibrary` before removing it.
 - Renamed every source file in both modules to consistently start with `DMV_`:
   `DMVTargetComponent.h/.cpp` -> `DMV_TargetComponent.h/.cpp`, `DMVTargetEvaluator.h/.cpp` ->
   `DMV_TargetEvaluator.h/.cpp`, `DMVTargetSubsystem.h/.cpp` -> `DMV_TargetSubsystem.h/.cpp`,
