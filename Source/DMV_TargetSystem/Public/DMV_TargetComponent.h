@@ -7,6 +7,7 @@
 #include "Components/SceneComponent.h"
 #include "Components/PrimitiveComponent.h"
 #include "Components/MeshComponent.h"
+#include "Engine/EngineTypes.h"
 #include "DMV_TargetComponent.generated.h"
 
 /** Where a target's visibility/line-of-sight checks should sample from, instead of always
@@ -40,13 +41,14 @@ public:
 	UPROPERTY(EditAnywhere, Category="Targeting|Visibility")
 	EDMVTargetVisibilitySource VisibilitySource = EDMVTargetVisibilitySource::Point;
 
-	/** Only used when VisibilitySource is ProxyCollision. The actor author places and
-	 *  configures this shape themselves (QueryOnly, ignoring every channel except whichever
-	 *  trace channel the line-of-sight scan uses) - this component only references it, it
-	 *  does not spawn or own it. */
+	/** Only used when VisibilitySource is ProxyCollision. Points at a component already placed
+	 *  on this actor (e.g. in the Blueprint's Components panel) - the actor author configures
+	 *  it themselves (QueryOnly, ignoring every channel except whichever trace channel the
+	 *  line-of-sight scan uses). This component only references it by name via
+	 *  FComponentReference, it does not spawn or own it. */
 	UPROPERTY(EditAnywhere, Category="Targeting|Visibility",
-		meta=(EditCondition="VisibilitySource==EDMVTargetVisibilitySource::ProxyCollision"))
-	TObjectPtr<UPrimitiveComponent> VisibilityProxy;
+		meta=(EditCondition="VisibilitySource==EDMVTargetVisibilitySource::ProxyCollision", AllowedClasses="PrimitiveComponent"))
+	FComponentReference VisibilityProxy;
 
 	/** Only used when VisibilitySource is OwnerMeshCollision, and only needed for actors with
 	 *  more than one mesh component where auto-resolving would be ambiguous. Leave null to

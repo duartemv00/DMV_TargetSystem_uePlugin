@@ -73,7 +73,11 @@ UPrimitiveComponent* UDMVTargetComponent::ResolveVisibilityComponent() const
 	switch (VisibilitySource)
 	{
 	case EDMVTargetVisibilitySource::ProxyCollision:
-		return VisibilityProxy;
+		if (AActor* Owner = GetOwner())
+		{
+			return Cast<UPrimitiveComponent>(VisibilityProxy.GetComponent(Owner));
+		}
+		return nullptr;
 
 	case EDMVTargetVisibilitySource::OwnerMeshCollision:
 		if (VisibilityMeshOverride)
