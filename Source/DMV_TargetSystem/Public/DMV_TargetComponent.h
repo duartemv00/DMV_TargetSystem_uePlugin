@@ -47,7 +47,7 @@ public:
 	 *  line-of-sight scan uses). This component only references it by name via
 	 *  FComponentReference, it does not spawn or own it. */
 	UPROPERTY(EditAnywhere, Category="Targeting|Visibility",
-		meta=(EditCondition="VisibilitySource==EDMVTargetVisibilitySource::ProxyCollision", AllowedClasses="PrimitiveComponent"))
+		meta=(EditCondition="VisibilitySource==EDMVTargetVisibilitySource::ProxyCollision", AllowedClasses="/Script/Engine.PrimitiveComponent"))
 	FComponentReference VisibilityProxy;
 
 	/** Only used when VisibilitySource is OwnerMeshCollision, and only needed for actors with
