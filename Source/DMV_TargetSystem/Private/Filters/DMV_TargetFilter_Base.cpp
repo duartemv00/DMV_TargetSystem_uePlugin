@@ -21,10 +21,9 @@ TArray<UDMVTargetComponent*> UDMVTargetFilter_Base::SortCandidates_Implementatio
 	return empty; 
 }
 
-TArray<UDMVTargetComponent*> UDMVTargetFilter_Base::PerformFilter_Implementation(
-	const TArray<UDMVTargetComponent*>& PotentialTargets, APlayerController* PlayerController)
+void UDMVTargetFilter_Base::PerformFilter_Implementation(
+	const TArray<UDMVTargetComponent*>& PotentialTargets, APlayerController* PlayerController,
+	TArray<UDMVTargetComponent*>& OutFilteredTargets)
 {
-	// Basic empty implementation
-	TArray<UDMVTargetComponent*> empty;
-	return empty;
+	// Basic empty implementation - OutFilteredTargets is left as the caller provided it (empty).
 }

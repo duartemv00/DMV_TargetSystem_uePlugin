@@ -117,7 +117,10 @@ one). `GetCurrentTargets()`/`GetCurrentTargetComponents()` return the full list 
 ## Filters
 
 A Filter is a `UDMVTargetFilter_Base` subclass (native or Blueprint) that implements
-`PerformFilter(PotentialTargets, PlayerController) -> TArray<UDMVTargetComponent*>`. A
+`PerformFilter(PotentialTargets, PlayerController, OutFilteredTargets)`. `OutFilteredTargets` is a
+fresh, already-empty array `ApplyFiltersToCandidates` constructs new every call - add surviving
+candidates to it, don't build/return a separate array of your own (there's nothing to return -
+this is `void`, not a returned `TArray`). A
 `UTargetGroup`'s `Filters` array holds actual filter **instances** (`Instanced` `UObject*`s, not
 just class references), run in array order, each filter narrowing/reordering the previous
 filter's output.
@@ -193,10 +196,13 @@ There's no Blueprint-variable equivalent of the narrower `EditInstanceOnly` (hid
 Defaults, visible only per-instance) - that combination is C++-only. From Blueprint it's a binary
 choice: **Instance Editable on** for tunable properties, **off** for fixed ones.
 
-**Footgun:** the base `PerformFilter_Implementation`/`SortCandidates_Implementation` both return
-an **empty array**, not the input unmodified. A `Filter` subclass that forgets to override
-`PerformFilter` doesn't act as a no-op/pass-through - it silently excludes every candidate for
-that group. Always override `PerformFilter` in any new filter.
+**Footgun:** the base `PerformFilter_Implementation` leaves `OutFilteredTargets` empty, and
+`SortCandidates_Implementation` returns an **empty array** - neither is the input unmodified. A
+`Filter` subclass that forgets to override `PerformFilter` doesn't act as a no-op/pass-through -
+it silently excludes every candidate for that group. Always override `PerformFilter` in any new
+filter, and always add to `OutFilteredTargets` rather than building/returning a separate array -
+see [Filters](#filters) above for why that specific mistake used to cause targets to get "stuck"
+and never clear.
 
 `SortCandidates` is declared (also `BlueprintNativeEvent`) but **the evaluator never calls it** -
 if a filter needs to sort, do it inside its own `PerformFilter`.
@@ -319,6 +325,14 @@ a system that depends on them:
 
 ## Recent history
 
+- Changed `PerformFilter` from returning `TArray<UDMVTargetComponent*>` to `void` with an
+  `OutFilteredTargets` ref parameter. The old signature let a filter's Blueprint override
+  accidentally return a stale/never-cleared array (e.g. one built from a persistent instance
+  variable instead of function-local state) - since `ApplyFiltersToCandidates` replaced its
+  candidates array with whatever was returned, this made an already-acquired target "stick"
+  forever, never clearing even once it should have failed every filter. `OutFilteredTargets` is
+  now a fresh, already-empty array constructed by the caller every single call, so there's no
+  separate array for a filter override to mismanage - add to it, don't return your own.
 - Removed `UDMVTargetFilter_Base::Threshold`. It was a single generic `float` meant to cover
   "distance, angle, health amount, etc." for every filter, but every filter subclass can already
   add its own properly-named, properly-typed `EditAnywhere` variables (a `MaxAngle`, a

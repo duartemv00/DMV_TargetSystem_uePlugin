@@ -25,11 +25,14 @@ public:
 	UFUNCTION(BlueprintCallable)
 	bool SpawnActorToScan(APlayerController* PlayerController, UDMVTargetComponent* Target);
 
-	/** */
+	/** OutFilteredTargets is a fresh, already-empty array the caller (ApplyFiltersToCandidates)
+	 *  constructs new every call - it cannot carry stale values over from a previous call the way
+	 *  a returned array could if a Blueprint override accidentally reused a persistent instance
+	 *  variable as its result. Add surviving candidates to OutFilteredTargets; don't build/return
+	 *  a separate array of your own. */
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable)
-	TArray<UDMVTargetComponent*> PerformFilter(const TArray<UDMVTargetComponent*>& PotentialTargets,
-		APlayerController* PlayerController);
-	// void PerformFilter(UPARAM(ref) TArray<UPlayerAutoTargetComponent*>& PotentialTargets);
+	void PerformFilter(const TArray<UDMVTargetComponent*>& PotentialTargets,
+		APlayerController* PlayerController, UPARAM(ref) TArray<UDMVTargetComponent*>& OutFilteredTargets);
 
 	/** */
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable)

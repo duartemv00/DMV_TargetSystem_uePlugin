@@ -193,8 +193,11 @@ void UDMVTargetEvaluator::ApplyFiltersToCandidates(const UTargetGroup* TargetGro
 	{
 		if (!IsValid(Filter)) continue;
 
-		CandidatesTargetComponents = Filter->PerformFilter(CandidatesTargetComponents,
-			CachedPlayerController.Get());
+		// Fresh, empty every call - a filter's Blueprint override cannot carry stale results over
+		// from a previous call the way a returned array could if it reused a persistent variable.
+		TArray<UDMVTargetComponent*> FilteredResult;
+		Filter->PerformFilter(CandidatesTargetComponents, CachedPlayerController.Get(), FilteredResult);
+		CandidatesTargetComponents = MoveTemp(FilteredResult);
 	}
 	// After applying filters call the delegate
 	for (auto& CandidateTargetComponent : CandidatesTargetComponents)
