@@ -100,9 +100,9 @@ TArray<FVector> UDMVTargetComponent::GetVisibilityTracePoints() const
 		return { GetComponentLocation() };
 	}
 
-	const FBoxSphereBounds Bounds = VisibilityComponent->Bounds;
-	const FVector Origin = Bounds.Origin;
-	const FVector Extent = Bounds.BoxExtent;
+	const FBoxSphereBounds ComponentBounds = VisibilityComponent->Bounds;
+	const FVector Origin = ComponentBounds.Origin;
+	const FVector Extent = ComponentBounds.BoxExtent;
 
 	return {
 		Origin,
