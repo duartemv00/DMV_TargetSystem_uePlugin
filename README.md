@@ -149,7 +149,19 @@ Returns the world-space points a line-of-sight scan should trace against:
 - `Point` mode, or no visibility component resolves: just `{ GetComponentLocation() }` - a single
   element, so a filter written for the multi-point case needs no special-casing for this fallback.
 - Otherwise: 7 points spread across the resolved component's bounds - center, top, bottom, left,
-  right, front, back.
+  right, front, back:
+
+```
+Side view (Z)                    Top-down view (X/Y)
+
+        top                              front
+         |                                 |
+         |                                 |
+origin ->+   (center)          left ------>+<------ right
+         |                                 |
+         |                                 |
+       bottom                             back
+```
 
 ### Using it in a filter
 
