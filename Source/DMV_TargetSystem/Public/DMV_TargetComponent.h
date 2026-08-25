@@ -64,8 +64,8 @@ public:
 
 	/** World-space sample points a line-of-sight scan should trace against: just
 	 *  GetComponentLocation() in Point mode (or if no visibility component resolves), or the
-	 *  center/top/bottom/left/right of the resolved component's bounds otherwise. Visible if
-	 *  ANY returned point is unobstructed. */
+	 *  center/top/bottom/left/right/front/back of the resolved component's bounds otherwise.
+	 *  Visible if ANY returned point is unobstructed. */
 	UFUNCTION(BlueprintCallable, Category="Targeting|Visibility")
 	TArray<FVector> GetVisibilityTracePoints() const;
 

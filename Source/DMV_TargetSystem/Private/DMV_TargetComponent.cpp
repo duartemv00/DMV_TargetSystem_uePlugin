@@ -113,7 +113,9 @@ TArray<FVector> UDMVTargetComponent::GetVisibilityTracePoints() const
 		Origin + FVector(0.f, 0.f, Extent.Z),
 		Origin - FVector(0.f, 0.f, Extent.Z),
 		Origin + FVector(0.f, Extent.Y, 0.f),
-		Origin - FVector(0.f, Extent.Y, 0.f)
+		Origin - FVector(0.f, Extent.Y, 0.f),
+		Origin + FVector(Extent.X, 0.f, 0.f),
+		Origin - FVector(Extent.X, 0.f, 0.f)
 	};
 }
 
