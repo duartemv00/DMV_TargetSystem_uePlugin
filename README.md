@@ -114,6 +114,52 @@ group (works unmodified for `SingleTarget`/`SingleTargetUseInterest`, since they
 one). `GetCurrentTargets()`/`GetCurrentTargetComponents()` return the full list and are the ones
 `MultiTarget` consumers should use.
 
+## Visibility
+
+`UDMVTargetComponent` exposes multi-point visibility sampling, meant for any line-of-sight-style
+filter to use instead of tracing to a single point (see `BP_TargetFilter_LineOfSight` below).
+
+**Why not just trace to `GetComponentLocation()`?** A single point is a coin flip against partial
+cover - if a wall happens to cover exactly where that point sits (e.g. a target's chest) but not
+the rest of the target, a single-point trace reports "not visible" even though the target is
+plainly visible (an arm or head sticking out past the wall, say). Sampling several points spread
+across the target's actual extent and treating it as visible if **any** of them has a clear line
+of sight fixes that.
+
+### `EDMVTargetVisibilitySource`
+
+- **`Point`** (default) - unchanged behavior: a single point at `GetComponentLocation()`. No extra
+  setup.
+- **`ProxyCollision`** - an explicit collision shape the actor author places and configures on the
+  actor (e.g. a capsule roughly matching the body), referenced via `VisibilityProxy` (an
+  `FComponentReference` - `UDMVTargetComponent` only points at it, doesn't spawn or own it). Best
+  when the mesh's own collision is a poor fit for what "visible" should mean (way too
+  tight/loose, or nonexistent).
+- **`OwnerMeshCollision`** - reuses the actor's existing mesh collision automatically
+  (`FindComponentByClass<UMeshComponent>()`), no extra shape needed. Set `VisibilityMeshOverride`
+  only if the actor has more than one mesh component and auto-resolving would be ambiguous.
+
+`ResolveVisibilityComponent()` resolves whichever shape `VisibilitySource` points at (or `nullptr`
+in `Point` mode, or if `OwnerMeshCollision`/`ProxyCollision` can't find anything valid).
+
+### `GetVisibilityTracePoints()`
+
+Returns the world-space points a line-of-sight scan should trace against:
+
+- `Point` mode, or no visibility component resolves: just `{ GetComponentLocation() }` - a single
+  element, so a filter written for the multi-point case needs no special-casing for this fallback.
+- Otherwise: 7 points spread across the resolved component's bounds - center, top, bottom, left,
+  right, front, back.
+
+### Using it in a filter
+
+1. Set the target's `VisibilitySource` (usually `OwnerMeshCollision` - zero extra setup).
+2. In the scan/filter's trace logic, call `GetVisibilityTracePoints()` on the candidate's
+   `UDMVTargetComponent` instead of tracing to a single location.
+3. Loop over the returned points, running a line trace from the viewer to each. Treat the target
+   as visible the moment **any** trace comes back unobstructed (no blocking hit, or the hit actor
+   is the target itself) - don't require every point to be clear.
+
 ## Filters
 
 A Filter is a `UDMVTargetFilter_Base` subclass (native or Blueprint) that implements
@@ -219,8 +265,9 @@ Existing example filters, shipped as Blueprints in this plugin's own
 - `BP_TargetFilter_Distance` - presumably thresholds candidates by distance from the player.
 - `BP_TargetFilter_ViewCone` (+ `ViewAngleByDistance_Curve`) - presumably thresholds candidates by
   view angle, with the allowed angle varying by distance via the curve asset.
-- `BP_TargetFilter_LineOfSight` (+ `BP_Scan_LineOfSight` as its `ScanClass`) - presumably a
-  per-candidate visibility trace via the scan-actor pattern above.
+- `BP_TargetFilter_LineOfSight` (+ `BP_Scan_LineOfSight` as its `ScanClass`) - a per-candidate
+  visibility trace via the scan-actor pattern above, using the multi-point sampling described in
+  [Visibility](#visibility) below rather than a single trace to the target's location.
 
 ### Reusable presets: `UDMVTargetFilter_Data`
 
@@ -325,6 +372,20 @@ a system that depends on them:
 
 ## Recent history
 
+- `OnTargetCleared` (`FPlayerAutoTargetsCleared`) now carries `AActor*`, mirroring
+  `FValidPlayerAutoTargetFound`. `ClearCurrentTarget` broadcasts it once per actor that was
+  targeted (captured before removing the context's entry from `CurrentTargetsMap`), instead of a
+  zero-param "something was cleared" signal listeners couldn't act on per-actor.
+- `GetVisibilityTracePoints()` gained front/back points (`Origin +/- Extent.X`), alongside the
+  existing center/top/bottom/left/right - see [Visibility](#visibility). The 5-point version could
+  still fail on cover that happened to block every one of those (e.g. a wall square in front of
+  the target's center but with a limb sticking out sideways *and* forward/back was undersampled).
+- Wired `BP_TargetFilter_LineOfSight`/`BP_Scan_LineOfSight` to actually use
+  `GetVisibilityTracePoints()`'s multi-point sampling - previously (per the plugin's own
+  then-current docs) it was assumed to do this but hadn't been confirmed; it was tracing to a
+  single point, same partial-cover problem the whole `EDMVTargetVisibilitySource`/
+  `GetVisibilityTracePoints()` system exists to solve, just not yet consumed by the one filter that
+  should have been using it.
 - Changed `PerformFilter` from returning `TArray<UDMVTargetComponent*>` to `void` with an
   `OutFilteredTargets` ref parameter. The old signature let a filter's Blueprint override
   accidentally return a stale/never-cleared array (e.g. one built from a persistent instance
