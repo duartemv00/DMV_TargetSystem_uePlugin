@@ -13,7 +13,7 @@ class UDMVTargetFilter_Data;
 
 DECLARE_DYNAMIC_DELEGATE_OneParam(FFilteringFinished, UDMVTargetComponent*, Target);
 DECLARE_DYNAMIC_DELEGATE_OneParam(FValidPlayerAutoTargetFound, AActor*, Actor);
-DECLARE_DYNAMIC_DELEGATE(FPlayerAutoTargetsCleared);
+DECLARE_DYNAMIC_DELEGATE_OneParam(FPlayerAutoTargetsCleared, AActor*, Actor);
 
 UENUM(BlueprintType)
 enum class ENumberOfTargets : uint8

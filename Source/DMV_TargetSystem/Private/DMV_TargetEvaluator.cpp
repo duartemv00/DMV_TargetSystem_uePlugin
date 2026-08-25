@@ -371,13 +371,28 @@ void UDMVTargetEvaluator::SetCurrentTargets(const FGameplayTag& ContextIdentifie
 
 void UDMVTargetEvaluator::ClearCurrentTarget(const FGameplayTag& ContextIdentifier)
 {
-	// Remove() returns how many entries were actually removed - only broadcast OnTargetCleared on
-	// the non-empty-to-empty transition, not every tick an already-empty group gets cleared again.
-	if (CurrentTargetsMap.Remove(ContextIdentifier) > 0)
+	// RemoveAndCopyValue only succeeds on the non-empty-to-empty transition, not every tick an
+	// already-empty group gets cleared again - the map never stores an empty array (see
+	// SetCurrentTargets), so a successful removal always means there's at least one actor to report.
+	TArray<TWeakObjectPtr<UDMVTargetComponent>> RemovedTargets;
+	if (!CurrentTargetsMap.RemoveAndCopyValue(ContextIdentifier, RemovedTargets))
 	{
-		if (const UTargetGroup* TargetGroup = FindActiveTargetGroup(ContextIdentifier))
+		return;
+	}
+
+	const UTargetGroup* TargetGroup = FindActiveTargetGroup(ContextIdentifier);
+	if (!TargetGroup)
+	{
+		return;
+	}
+
+	// One broadcast per actor that was targeted, mirroring how OnValidTargetFound fires - a
+	// listener reacting per-actor (e.g. clearing that actor's highlight) needs the reference.
+	for (const TWeakObjectPtr<UDMVTargetComponent>& WeakTarget : RemovedTargets)
+	{
+		if (UDMVTargetComponent* Target = WeakTarget.Get())
 		{
-			TargetGroup->OnTargetCleared.ExecuteIfBound();
+			TargetGroup->OnTargetCleared.ExecuteIfBound(Target->GetOwner());
 		}
 	}
 }
