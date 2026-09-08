@@ -53,14 +53,18 @@ void UDMVTargetComponent::SetInterest(float NewInterest)
 		FTimerManager& TimerManager = GetWorld()->GetTimerManager();
 		if (!TimerManager.IsTimerActive(InterestTimer))
 		{
-			TimerManager.SetTimer(InterestTimer, this, &UDMVTargetComponent::ResetInterest, .01f, true);
+			TimerManager.SetTimer(InterestTimer, this, &UDMVTargetComponent::ResetInterest,
+				FMath::Max(InterestDecayInterval, 0.02f), true);
 		}
 	}
 }
 
 void UDMVTargetComponent::ResetInterest()
 {
-	Interest = UKismetMathLibrary::Clamp(Interest - 0.01f, BaseInterest, 100.f);
+	// Step scales with the timer interval so the decay rate (points/second) is unchanged when the
+	// timer runs slower - default 1.0/s * 0.1s = 0.1 per tick, same as the old 0.01 per 0.01s.
+	const float DecayStep = InterestDecayPerSecond * FMath::Max(InterestDecayInterval, 0.02f);
+	Interest = UKismetMathLibrary::Clamp(Interest - DecayStep, BaseInterest, 100.f);
 
 	if (Interest <= BaseInterest)
 	{

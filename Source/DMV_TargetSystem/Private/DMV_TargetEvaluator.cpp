@@ -366,7 +366,9 @@ void UDMVTargetEvaluator::SetCurrentTargets(const FGameplayTag& ContextIdentifie
 
 	CurrentTargetsMap.Add(ContextIdentifier, MoveTemp(WeakTargets));
 
-	UE_LOG(LogTemp, Warning, TEXT("New target(s) of %s: %d"), *ContextIdentifier.ToString(), Targets.Num());
+	// Verbose: this fires on every target change - potentially several times a second as the
+	// highest-interest target flickers between candidates - so it can't be a Warning.
+	UE_LOG(LogTemp, Verbose, TEXT("New target(s) of %s: %d"), *ContextIdentifier.ToString(), Targets.Num());
 }
 
 void UDMVTargetEvaluator::ClearCurrentTarget(const FGameplayTag& ContextIdentifier)

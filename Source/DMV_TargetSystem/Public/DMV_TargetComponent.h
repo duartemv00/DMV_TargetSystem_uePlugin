@@ -73,6 +73,17 @@ public:
 	UPROPERTY(EditAnywhere)
 	float BaseInterest = .0f;
 
+	/** Seconds between passive Interest-decay ticks. Was a hard-coded 0.01 (100 Hz) looping timer
+	 *  per target with raised interest. The per-tick step scales with this, so raising it trades
+	 *  timer callbacks, not decay speed. */
+	UPROPERTY(EditAnywhere, Category="Interest", meta=(ClampMin="0.02"))
+	float InterestDecayInterval = 0.1f;
+
+	/** Interest points bled off per second while a target is no longer being actively evaluated.
+	 *  Was an implicit 1.0/s (0.01 every 0.01 s). */
+	UPROPERTY(EditAnywhere, Category="Interest", meta=(ClampMin="0.0"))
+	float InterestDecayPerSecond = 1.f;
+
 	/** Current Interest score - see the per-usage Interest concept in the plugin README. */
 	float GetInterest() const { return Interest; }
 
