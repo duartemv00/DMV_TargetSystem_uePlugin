@@ -11,9 +11,27 @@ The system is centralized instead of shared, so the responsibility is easy to ac
 
 It answers to **"Who is the current target for context X on this local player."** continuously, **every tick.**
 
-## Use example
+## Selection modes (`ENumberOfTargets`)
+- **`SingleTarget`** - takes the first candidate that survives the Filters array, in whatever
+  order the subsystem/filters left it. No tie-breaking logic.
+- **`SingleTargetUseInterest`** - runs `UpdateInterest()` (angle- and/or distance-based scoring,
+  toggled independently via `bUpdateInterestByConeAngle`/`bUpdateInterestByDistance`) over the
+  candidates, then takes whichever has the highest `Interest`. Interest persists on the
+  `UDMVTargetComponent` itself and decays continuously (a `0.01f` timer on the component, see
+  `ResetInterest`), so a target that was recently "hot" stays slightly favored for a moment even
+  if it briefly leaves the cone/range - a basic sticky-target behavior.
+- **`MultiTarget`** - every candidate that survives the Filters array becomes a target. **No cap**
+  - if you need to bound how many targets a group can have, do it in a Filter (e.g. a filter that
+  sorts by distance/interest and truncates), not by expecting the evaluator to cap it.
 
-**Worked example - interaction:** two separate contexts, registered independently, doing two
+`GetCurrentTarget()`/`GetCurrentTargetComponent()` always return the *first* current target for a
+group (works unmodified for `SingleTarget`/`SingleTargetUseInterest`, since they only ever store
+one). `GetCurrentTargets()`/`GetCurrentTargetComponents()` return the full list and are the ones
+`MultiTarget` consumers should use.
+
+## Use example
+For basic interaction:
+Two separate contexts, registered independently, doing two
 different jobs off the same underlying actors:
 
 - `ID.TargetGroup.CanInteract`, mode `MultiTarget` - every interactable actor within range/filter
@@ -88,25 +106,6 @@ It's a **polling** model: there is no "target found" event today (see
 here replicates, and `CurrentTargetsMap` only ever exists client-side, one per local player. **Never
 use this system's answer to decide something that must be server-authoritative** (e.g. don't trust
 "the current target" to resolve hit/damage - the server must independently validate any hit).
-
-## Selection modes (`ENumberOfTargets`)
-
-- **`SingleTarget`** - takes the first candidate that survives the Filters array, in whatever
-  order the subsystem/filters left it. No tie-breaking logic.
-- **`SingleTargetUseInterest`** - runs `UpdateInterest()` (angle- and/or distance-based scoring,
-  toggled independently via `bUpdateInterestByConeAngle`/`bUpdateInterestByDistance`) over the
-  candidates, then takes whichever has the highest `Interest`. Interest persists on the
-  `UDMVTargetComponent` itself and decays continuously (a `0.01f` timer on the component, see
-  `ResetInterest`), so a target that was recently "hot" stays slightly favored for a moment even
-  if it briefly leaves the cone/range - a basic sticky-target behavior.
-- **`MultiTarget`** - every candidate that survives the Filters array becomes a target. **No cap**
-  - if you need to bound how many targets a group can have, do it in a Filter (e.g. a filter that
-  sorts by distance/interest and truncates), not by expecting the evaluator to cap it.
-
-`GetCurrentTarget()`/`GetCurrentTargetComponent()` always return the *first* current target for a
-group (works unmodified for `SingleTarget`/`SingleTargetUseInterest`, since they only ever store
-one). `GetCurrentTargets()`/`GetCurrentTargetComponents()` return the full list and are the ones
-`MultiTarget` consumers should use.
 
 ## Visibility
 
