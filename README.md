@@ -353,23 +353,3 @@ plugin itself only declares one placeholder, `ID.TargetGroup.Example`
 projects are expected to declare their own. Labslop's own `LBP_GameplayTags.h`/`.cpp` currently
 declares `ID.TargetGroup.Enemy` and `ID.TargetGroup.InteractActor`, also not yet consumed by
 anything.
-
-## Known gaps / open design questions
-
-These are real, currently-true limitations - not hypotheticals - worth resolving before building
-a system that depends on them:
-
-- **`OnTargetCleared` can't express partial loss in a `MultiTarget` group.** `FPlayerAutoTargetsCleared`
-  takes no params, so `SetCurrentTargets`/`ClearCurrentTarget` can only broadcast it to mean "this
-  group now has zero targets" (fired once, on the non-empty-to-empty transition - see Recent
-  history). For a `MultiTarget` group that loses one of several targets while others remain,
-  nothing fires today - there's no "this one target was lost" signal. Left this way deliberately
-  for now; revisit with a new delegate type (e.g. one that reports which target dropped) if a
-  `MultiTarget` consumer actually needs per-actor loss notifications.
-- **Scan-based filters spawn+destroy an actor per candidate per call** (`SpawnActorToScan`) - fine
-  at today's scale (nothing uses this plugin yet), worth profiling once a real consumer with many
-  concurrent groups/candidates uses a scan-based filter.
-- **`UpdateInterest` walks its `Finalists` list twice** - once for the cone-angle branch, once for
-  the distance branch, when both `bUpdateInterestByConeAngle` and `bUpdateInterestByDistance` are
-  enabled. Minor; could merge into one pass, but unlikely to matter at realistic finalist counts
-  compared to the two gaps above.
