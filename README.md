@@ -71,7 +71,7 @@ not a global setting or something decided later.
 *for*
 - NumberOfTargets: Decides per context how many actors are 
 
-### Data flow
+## Data flow
 
 ```
 targetable actor's UDMVTargetComponent::BeginPlay()
@@ -94,8 +94,7 @@ CurrentTargetsMap[GroupID] = selected target(s)
 callers poll GetCurrentTarget(GroupID) / GetCurrentTargets(GroupID)
 ```
 
-It's a **polling** model: there is no "target found" event today (see
-[Known gaps](#known-gaps--open-design-questions)). A consumer reads the evaluator every tick
+OPEN ISSUE: There is no "target found" event, so a consumer reads the evaluator every tick
 (or every frame it cares) rather than subscribing to a callback.
 
 ### Execution model: local-only, not replicated
