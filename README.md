@@ -1,18 +1,15 @@
 # DMV_TargetSystem
 
 ## Design intent
-**Gather actors in the world and categorize them by the use they will have in the game. **
+**Gather actors in the world and categorize them by the use they will have in the game.**
+
 To categorize them, the system uses **filters**: "Find nearby candidates, filter them, pick one (or many)."
+
 The system's aim is not to have an specific functionality, but to **provide to other systems**.
+
 The system is centralized instead of shared, so the responsibility is easy to access and we don't need to re-implement the logic multiple times.
+
 It answers to **"Who is the current target for context X on this local player."** continuously, **every tick.**
-
-## Vocabulary
-- Category: Is a target context tag; what a category is
-*for*
-- NumberOfTargets: Decides per context how many actors are 
-
-
 
 ## Use example
 
@@ -51,6 +48,10 @@ not a global setting or something decided later.
 | Target Group | `UTargetGroup` | One "thing I want targeted": a context tag, a list of Filters, and a selection mode (`ENumberOfTargets`). Created by calling `AddTargetEvaluationContext`. |
 | Filter | `UDMVTargetFilter_Base` (+ subclasses) | A candidate-list transform - narrows/reorders the raw candidate list for one Target Group. |
 | Interest | `UDMVTargetComponent::Interest` | A per-target "hotness" score that rises while it's the closest candidate by angle/distance and decays otherwise. Only consulted by the `SingleTargetUseInterest` selection mode. |
+
+- Category: Is a target context tag; what a category is
+*for*
+- NumberOfTargets: Decides per context how many actors are 
 
 ### Data flow
 
