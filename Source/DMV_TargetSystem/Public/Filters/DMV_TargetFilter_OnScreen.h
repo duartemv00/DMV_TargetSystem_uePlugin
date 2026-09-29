@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// Copyright DuarteMV. All Rights Reserved.
 
 #pragma once
 
@@ -9,10 +9,8 @@
 class UDMVTargetComponent;
 
 /**
- * Keeps only candidates with at least one of their GetVisibilityTracePoints() sample points
- * projecting inside the player's current viewport rectangle - a screen-space bounds check for
- * "is this on screen at all," independent of whether anything is actually occluding it (that's
- * the separate concern the LineOfSight filter covers).
+ * Keeps candidates with at least 1 of their sample points projecting inside the player's current viewport rectangle 
+ * Independent of whether anything is actually occluding it.
  */
 UCLASS(meta = (DisplayName = "Target Filter - On Screen"))
 class DMV_TARGETSYSTEM_API UDMVTargetFilter_OnScreen : public UDMVTargetFilter_Base

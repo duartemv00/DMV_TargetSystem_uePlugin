@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// Copyright DuarteMV. All Rights Reserved.
 
 #pragma once
 
@@ -9,9 +9,7 @@
 class UDMVTargetComponent;
 
 /**
- * Keeps only candidates whose owning Actor is of TargetClass, or any subclass of it - everything
- * else is dropped. Useful for narrowing a broad target context down to one actor type (e.g.
- * pulling only ACustomLightSource actors out of a context that also registers other target types).
+ * Keeps only candidates whose owning Actor is of TargetClass or any subclass of it.
  */
 UCLASS(meta = (DisplayName = "Target Filter - Class"))
 class DMV_TARGETSYSTEM_API UDMVTargetFilter_Class : public UDMVTargetFilter_Base

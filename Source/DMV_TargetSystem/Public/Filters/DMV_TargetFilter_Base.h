@@ -1,40 +1,36 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// Copyright DuarteMV. All Rights Reserved.
 
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Scan/DMV_ScanForActors.h"
 #include "UObject/Object.h"
 #include "DMV_TargetFilter_Base.generated.h"
 
+class APlayerController;
+class UDMVTargetComponent;
+
 /**
- * 
+ * Base class for all filters that can be applied to target candidates.
  */
-UCLASS(BlueprintType, Blueprintable, EditInlineNew) //Abstract, Blueprintable, DefaultToInstanced
+UCLASS(BlueprintType, Blueprintable, EditInlineNew, Abstract)
 class DMV_TARGETSYSTEM_API UDMVTargetFilter_Base : public UObject
 {
 	GENERATED_BODY()
 
 public:
-	/** */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	TSubclassOf<ADMVScanForActors> ScanClass;
-
-public:
-	/** */
-	UFUNCTION(BlueprintCallable)
-	bool SpawnActorToScan(APlayerController* PlayerController, UDMVTargetComponent* Target);
-
-	/** OutFilteredTargets is a fresh, already-empty array the caller (ApplyFiltersToCandidates)
-	 *  constructs new every call - it cannot carry stale values over from a previous call the way
-	 *  a returned array could if a Blueprint override accidentally reused a persistent instance
-	 *  variable as its result. Add surviving candidates to OutFilteredTargets; don't build/return
-	 *  a separate array of your own. */
+	/** 
+	 * Override in subclasses to hold the logic of filtering the candidates.
+	 * The function ensures that an empty array of OutFilteredTargets is construct new every call.
+	 */
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable)
 	void PerformFilter(const TArray<UDMVTargetComponent*>& PotentialTargets,
-		APlayerController* PlayerController, UPARAM(ref) TArray<UDMVTargetComponent*>& OutFilteredTargets);
+		APlayerController* PlayerController, UPARAM(ref) 
+		TArray<UDMVTargetComponent*>& OutFilteredTargets);
 
-	/** */
+	/** 
+	 * Optional separate function in case sorting is needed for the candidates. 
+	 * Also override in subclasses.
+	 */
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable)
 	TArray<UDMVTargetComponent*> SortCandidates(const TArray<UDMVTargetComponent*>& PotentialTargets);
 };

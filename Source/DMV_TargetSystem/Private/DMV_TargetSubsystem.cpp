@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// Copyright DuarteMV. All Rights Reserved.
 
 
 #include "../Public/DMV_TargetSubsystem.h"
@@ -16,8 +16,7 @@ TArray<TWeakObjectPtr<UDMVTargetComponent>> UDMVTargetSubsystem::GetTargetsForCo
 		return TargetList.GetTargets();
 	}
 
-	// Lazily start rebuilding the spatial grid the first time anyone asks for a radius-bounded
-	// query - nothing pays for it otherwise.
+	// Start rebuilding the spatial grid the first time anyone asks for a radius-bounded query 
 	FTimerManager& TimerManager = GetWorld()->GetTimerManager();
 	if (!TimerManager.IsTimerActive(SpatialGridRebuildTimer))
 	{
@@ -47,8 +46,8 @@ TArray<TWeakObjectPtr<UDMVTargetComponent>> UDMVTargetSubsystem::GetTargetsForCo
 
 				for (const TWeakObjectPtr<UDMVTargetComponent>& WeakTarget : *CellTargets)
 				{
-					// The grid is a coarse cube around the query sphere and only rebuilt
-					// periodically, so both tag membership and exact distance still need
+					// The grid is a cube only rebuilt periodically, 
+					// so both tag membership and exact distance still need
 					// re-checking against the target's current state.
 					UDMVTargetComponent* Target = WeakTarget.Get();
 					if (!Target || !Target->GetTargetContextIdentifiers().HasTag(TargetContextIdentifier))
@@ -71,8 +70,7 @@ void UDMVTargetSubsystem::RebuildSpatialGrid()
 {
 	SpatialGrid.Reset();
 
-	// Union every context's target list first - a target registered under more than one tag
-	// should only occupy one grid cell, not be bucketed once per tag.
+	// Union every context's target list first, so a target registered under more than one tag occupy one grid cell.
 	TSet<TWeakObjectPtr<UDMVTargetComponent>> UniqueTargets;
 	for (const TPair<FGameplayTag, FPlayerTargetList>& Pair : PlayerTargetsByContext)
 	{

@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// Copyright DuarteMV. All Rights Reserved.
 
 #include "../../Public/Filters/DMV_TargetFilter_OnScreen.h"
 
@@ -19,10 +19,7 @@ void UDMVTargetFilter_OnScreen::PerformFilter_Implementation(
 	for (UDMVTargetComponent* Candidate : PotentialTargets)
 	{
 		if (!IsValid(Candidate)) continue;
-
-		// Any sample point landing on screen counts - mirrors the same "any point clear counts as
-		// visible" reasoning GetVisibilityTracePoints() exists for on the line-of-sight side: a
-		// large target whose origin happens to sit just off-screen can still have an edge on it.
+		
 		for (const FVector& SamplePoint : Candidate->GetVisibilityTracePoints())
 		{
 			FVector2D ScreenPosition;

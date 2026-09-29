@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// Copyright DuarteMV. All Rights Reserved.
 
 #pragma once
 
@@ -10,23 +10,16 @@
 #include "Engine/EngineTypes.h"
 #include "DMV_TargetComponent.generated.h"
 
-/** Where a target's visibility/line-of-sight checks should sample from, instead of always
- *  using this component's own single-point transform. See the plugin README's Visibility
- *  section for the rationale. */
+/** How the visibility of the owner will be handled. */
 UENUM(BlueprintType)
-enum class EDMVTargetVisibilitySource : uint8
+enum class EDMVTargetVisibilityMode : uint8
 {
-	/** Default, unchanged behavior: a single point at GetComponentLocation(). */
-	Point,
-	/** An explicit shape the actor author placed and configured (see VisibilityProxy). */
-	ProxyCollision,
-	/** Reuse the owning actor's existing mesh collision - no extra shape needed. */
-	OwnerMeshCollision
+	Point, /** Default. Single point at GetComponentLocation(). */
+	ProxyCollision, /** Explicit shape the actor author placed and configured. */
+	OwnerMeshCollision /** Reuse the owning actor's existing mesh collision. */
 };
 
-/**
- * Scene Component which registers as a potential target for player auto-targeting. Derived classes can be created with additional functionality.
- */
+/** Scene Component which registers the owner as a potential target. */
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent), Blueprintable)
 class DMV_TARGETSYSTEM_API UDMVTargetComponent : public USceneComponent
 {
@@ -35,69 +28,72 @@ class DMV_TARGETSYSTEM_API UDMVTargetComponent : public USceneComponent
 public:
 	UDMVTargetComponent();
 
-// VISIBILITY //
-	/** How PerformScan-style visibility/line-of-sight checks should sample this target.
-	 *  Defaults to Point, which is exactly today's behavior. */
+	
+	
+	
+////////// VISIBILITY //////////
+/// Used by filters that involve visibility. Expresses how the owner will be perceived by the system. 
 	UPROPERTY(EditAnywhere, Category="Targeting|Visibility")
-	EDMVTargetVisibilitySource VisibilitySource = EDMVTargetVisibilitySource::Point;
+	EDMVTargetVisibilityMode VisibilityMode = EDMVTargetVisibilityMode::Point;
 
-	/** Only used when VisibilitySource is ProxyCollision. Points at a component already placed
-	 *  on this actor (e.g. in the Blueprint's Components panel) - the actor author configures
-	 *  it themselves (QueryOnly, ignoring every channel except whichever trace channel the
-	 *  line-of-sight scan uses). This component only references it by name via
-	 *  FComponentReference, it does not spawn or own it. */
+	/** 
+	 * VisibilityMode == ProxyCollision. 
+	 * References a component already placed, not spawn or own it.
+	 * - USER COLLISION CONFIG: QueryOnly, ignoring every channel except whichever trace a filter will use.
+	 */ 
 	UPROPERTY(EditAnywhere, Category="Targeting|Visibility",
-		meta=(EditCondition="VisibilitySource==EDMVTargetVisibilitySource::ProxyCollision", AllowedClasses="/Script/Engine.PrimitiveComponent"))
+		meta=(EditCondition="VisibilityMode==EDMVTargetVisibilityMode::ProxyCollision", AllowedClasses="/Script/Engine.PrimitiveComponent"))
 	FComponentReference VisibilityProxy;
 
-	/** Only used when VisibilitySource is OwnerMeshCollision, and only needed for actors with
-	 *  more than one mesh component where auto-resolving would be ambiguous. Leave null to
-	 *  auto-resolve via GetOwner()->FindComponentByClass<UMeshComponent>(). */
+	/** 
+	 * VisibilityMode == OwnerMeshCollision.
+	 * Needed for actors with more than one mesh component (ambiguity). 
+	 * Leave null to auto-resolve via GetOwner()->FindComponentByClass<UMeshComponent>(). 
+	 */
 	UPROPERTY(EditAnywhere, Category="Targeting|Visibility",
-		meta=(EditCondition="VisibilitySource==EDMVTargetVisibilitySource::OwnerMeshCollision"))
+		meta=(EditCondition="VisibilityMode==EDMVTargetVisibilityMode::OwnerMeshCollision"))
 	TObjectPtr<UMeshComponent> VisibilityMeshOverride;
 
-	/** Resolves the shape driving visibility checks per VisibilitySource, or nullptr in Point
-	 *  mode (or if OwnerMeshCollision can't find a mesh to use). */
+	/** 
+	 * Resolves the shape driving visibility checks (ProxyCollision and OwnedMesh)
+	 * nullptr in Point or if OwnerMeshCollision can't find a mesh to use.
+	 */
 	UFUNCTION(BlueprintCallable, Category="Targeting|Visibility")
 	UPrimitiveComponent* ResolveVisibilityComponent() const;
 
-	/** World-space sample points a line-of-sight scan should trace against: just
-	 *  GetComponentLocation() in Point mode (or if no visibility component resolves), or the
-	 *  center/top/bottom/left/right/front/back of the resolved component's bounds otherwise.
-	 *  Visible if ANY returned point is unobstructed. */
+	/** World-space sample points for filters to check against. */
 	UFUNCTION(BlueprintCallable, Category="Targeting|Visibility")
 	TArray<FVector> GetVisibilityTracePoints() const;
-
-// INTEREST //
+	
+	
+	
+	
+////////// INTEREST //////////
+/// Buffers intention of the player. Useful, for example, when the action happens to fast to perfectly aim, so accidental changes of aim can happen.
 	UPROPERTY(EditAnywhere)
 	float BaseInterest = .0f;
 
-	/** Seconds between passive Interest-decay ticks. Was a hard-coded 0.01 (100 Hz) looping timer
-	 *  per target with raised interest. The per-tick step scales with this, so raising it trades
-	 *  timer callbacks, not decay speed. */
+	/** Seconds between passive Interest-decay ticks. */
 	UPROPERTY(EditAnywhere, Category="Interest", meta=(ClampMin="0.02"))
 	float InterestDecayInterval = 0.1f;
 
-	/** Interest points bled off per second while a target is no longer being actively evaluated.
-	 *  Was an implicit 1.0/s (0.01 every 0.01 s). */
+	/** Interest points bled off per second while a target is no longer being actively evaluated. */
 	UPROPERTY(EditAnywhere, Category="Interest", meta=(ClampMin="0.0"))
 	float InterestDecayPerSecond = 1.f;
 
-	/** Current Interest score - see the per-usage Interest concept in the plugin README. */
+	/** GET current Interest score */
 	float GetInterest() const { return Interest; }
 
-	/** Sets Interest to an already-clamped value (the evaluator computes the clamp itself against
-	 *  BaseInterest/100). (Re)starts the decay timer if this raises Interest above BaseInterest and
-	 *  it isn't already running - ResetInterest stops the timer again once decay brings Interest
-	 *  back down to BaseInterest, so the timer only runs while there's actually something to decay
-	 *  instead of unconditionally for this component's entire lifetime. */
+	/** Sets Interest to an already-clamped value. The timer only runs while there's something to decay. */
 	void SetInterest(float NewInterest);
 
-	/** This component's registered target-context tags. Used by UDMVTargetSubsystem's spatial grid
-	 *  query to confirm a spatially-nearby candidate actually belongs to the tag being queried. */
+	/** GET this component's registered target-context tags. */
 	const FGameplayTagContainer& GetTargetContextIdentifiers() const { return TargetContextIdentifiers; }
 
+	
+	
+	
+	
 protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
@@ -105,7 +101,7 @@ protected:
 	UFUNCTION()
 	void ResetInterest();
 
-	/** Here you can add to which context the object belongs */
+	/** To which context the owner belongs */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Targeting",
 		meta=(Categories="ID.TargetGroup"))
 	FGameplayTagContainer TargetContextIdentifiers;

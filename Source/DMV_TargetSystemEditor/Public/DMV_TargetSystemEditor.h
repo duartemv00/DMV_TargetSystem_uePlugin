@@ -1,14 +1,11 @@
-// Copyright Epic Games, Inc. All Rights Reserved.
+// Copyright DuarteMV. All Rights Reserved.
 
 #pragma once
 
 #include "Modules/ModuleManager.h"
 
 /**
- * Editor-only module for DMV_TargetSystem. Registers detail customizations - see
- * FDMVTargetFilterBaseCustomization - that only make sense in editor builds, so they live in a
- * separate Editor-type module rather than the Runtime DMV_TargetSystem module (which must stay
- * loadable in cooked/packaged builds that never link PropertyEditor/UnrealEd/Slate).
+ * Editor-only module for DMV_TargetSystem, for everything that only makes sense in editor builds.
  */
 class FDMV_TargetSystemEditorModule : public IModuleInterface
 {

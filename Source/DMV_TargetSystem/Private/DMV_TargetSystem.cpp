@@ -1,4 +1,4 @@
-// Copyright Epic Games, Inc. All Rights Reserved.
+// Copyright DuarteMV. All Rights Reserved.
 
 #include "DMV_TargetSystem.h"
 

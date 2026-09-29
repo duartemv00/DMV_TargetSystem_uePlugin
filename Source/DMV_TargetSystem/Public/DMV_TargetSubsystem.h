@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// Copyright DuarteMV. All Rights Reserved.
 
 #pragma once
 
@@ -12,7 +12,6 @@ DECLARE_LOG_CATEGORY_EXTERN(LogPlayerTargetEval, Log, All);
 /**
  * 
  */
-
 USTRUCT()
 struct FPlayerTargetList
 {
@@ -54,25 +53,20 @@ private:
 	TSet<TWeakObjectPtr<UDMVTargetComponent>> TargetsSet;
 };
 
+/**
+ * 
+ */
 UCLASS()
 class DMV_TARGETSYSTEM_API UDMVTargetSubsystem : public UGameInstanceSubsystem
 {
 	GENERATED_BODY()
 
 public:
-	/** Gets the currently registered targets for the specified target context, optionally culled to
-	 * those within QueryRadius of QueryOrigin. Not available in Blueprint - Unreal does not support
-	 * WeakObjectPtrs there.
-	 *
-	 * With QueryRadius <= 0 (the default), returns every target registered under the tag - no
-	 * culling, a straight copy of the per-tag list (see FPlayerTargetList).
-	 *
-	 * With QueryRadius > 0, culls via a periodically-rebuilt spatial hash grid (see
-	 * RebuildSpatialGrid) instead of scanning every target registered under the tag - trading a
-	 * small window of positional staleness (up to SpatialGridRebuildInterval seconds) for turning
-	 * an O(targets registered under this tag) scan into one bounded by how many targets are
-	 * actually near QueryOrigin. The grid itself is only built starting the first time any caller
-	 * passes QueryRadius > 0 - nothing pays for it otherwise. */
+	/** Gets the currently registered targets for the specified target context, 
+	 * Optionally culled to those within QueryRadius of QueryOrigin. 
+	 * -> QueryRadius <= 0 (the default), returns every target registered under the tag
+	 * -> QueryRadius > 0, culls via a periodically rebuilt spatial hash grid instead of scanning every target registered under the tag.
+	 * The grid is only built starting the first time any caller passes QueryRadius > 0. */
 	TArray<TWeakObjectPtr<UDMVTargetComponent>> GetTargetsForContext(
 		const FGameplayTag& TargetContextIdentifier,
 		const FVector& QueryOrigin = FVector::ZeroVector,
@@ -95,32 +89,29 @@ public:
 	void UnregisterTargetForContexts(UDMVTargetComponent* Target, const FGameplayTagContainer& TargetContextIdentifiers);
 
 private:
-	/** Re-buckets every currently-registered target (across all contexts, deduplicated) into
-	 * SpatialGrid by its current world location. Started lazily by the first radius-bounded
-	 * GetTargetsForContext call, then keeps re-triggering itself on SpatialGridRebuildTimer. */
+	/** Re-organize every currently-registered target into an SpatialGrid by its current world location. 
+	 * Works across all contexts and deletes duplicates. */
 	void RebuildSpatialGrid();
 
-	/** Converts a world location to the grid cell it falls in, per SpatialGridCellSize. */
+	/** Converts a world location to the grid cell it falls in. */
 	FIntVector WorldLocationToCell(const FVector& Location) const;
 
 	/** Map of the registered targets, grouped by targeting context. */
 	UPROPERTY()
 	TMap<FGameplayTag, FPlayerTargetList> PlayerTargetsByContext;
 
-	/** Bucket size (cm) for the spatial hash grid used to accelerate radius-bounded
-	 * GetTargetsForContext queries. */
+	/** Cell size (cm) for the spatial hash grid */
 	UPROPERTY(EditAnywhere, Category="Targeting|Performance")
 	float SpatialGridCellSize = 500.f;
 
-	/** How often (seconds) the spatial grid re-buckets every registered target by its current
-	 * location. Only runs once some caller has actually asked for a radius-bounded query. */
+	/** How often (seconds) the spatial grid re-organizes every registered target by its current location. 
+	 * Only runs once some caller has actually asked for a radius-bounded query. */
 	UPROPERTY(EditAnywhere, Category="Targeting|Performance")
 	float SpatialGridRebuildInterval = 0.1f;
 
-	/** Spatial hash grid over every registered target (regardless of context tag), rebucketed
-	 * periodically - see RebuildSpatialGrid. Not kept in sync with PlayerTargetsByContext in
-	 * real time; only ever used by radius-bounded GetTargetsForContext queries, which re-filter
-	 * by tag and exact distance after the grid narrows down which cells to look at. */
+	/** Spatial hash grid over every registered target regardless of context tag. Reorganized periodically.
+	 * Only ever used by radius-bounded GetTargetsForContext queries
+	 * You can then apply distance filters after the grid narrows down which cells to look at. */
 	TMap<FIntVector, TArray<TWeakObjectPtr<UDMVTargetComponent>>> SpatialGrid;
 
 	FTimerHandle SpatialGridRebuildTimer;

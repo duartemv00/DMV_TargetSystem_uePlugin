@@ -1,9 +1,9 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// Copyright DuarteMV. All Rights Reserved.
 
 
 #include "../Public/DMV_TargetEvaluator.h"
 #include "../Public/Filters/DMV_TargetFilter_Base.h"
-#include "../Public/Filters/DMV_TargetFilter_Data.h"
+#include "../Public/Filters/DMV_TargetFilterData.h"
 #include "Kismet/KismetMathLibrary.h"
 
 
@@ -21,9 +21,7 @@ void UDMVTargetEvaluator::BeginPlay()
 
 	CachedPlayerController = Cast<APlayerController>(GetOwner());
 
-	// Targeting is a per-viewer, cosmetic-only concern (used to drive local UI/reticle feedback).
-	// Only the owning client needs the result, so remote proxies of other players' controllers -
-	// and the server, for a client-owned controller - must not run this every tick.
+	// Targeting is a per-viewer concern: Only the owning client needs the result
 	if (!CachedPlayerController.IsValid() || !CachedPlayerController->IsLocalController())
 	{
 		SetComponentTickEnabled(false);
@@ -129,9 +127,7 @@ void UDMVTargetEvaluator::AnalyseTargetGroups()
 	{
 		FGameplayTag TargetGroupIdentifier = TargetGroupToEvaluate->TargetGroupID;
 		
-		// Create & fill list of candidates target components. A positive MaxCullDistance culls via
-		// the subsystem's spatial grid before Filters ever run; <= 0 (the default) fetches every
-		// target registered under this tag, same as before MaxCullDistance existed.
+		// Create & fill list of candidates target components.
 		TArray<UDMVTargetComponent*> CandidatesTargetComponents;
 		for (const TWeakObjectPtr<UDMVTargetComponent>& TargetComponent :
 			PlayerAutoTargetManagerSubsystem->GetTargetsForContext(
@@ -187,19 +183,18 @@ void UDMVTargetEvaluator::ApplyFiltersToCandidates(const UTargetGroup* TargetGro
 {
 	if (TargetGroupToEvaluate->Filters.IsEmpty()) return;
 
-	// Each filter is already a pre-configured instance owned by this TargetGroup (see
-	// AddTargetEvaluationContext) - no per-tick construction needed, just run them in order.
+	// Each filter is already a pre-configured instance owned by this TargetGroup. Run them in order.
 	for (UDMVTargetFilter_Base* Filter : TargetGroupToEvaluate->Filters)
 	{
 		if (!IsValid(Filter)) continue;
 
-		// Fresh, empty every call - a filter's Blueprint override cannot carry stale results over
-		// from a previous call the way a returned array could if it reused a persistent variable.
+		// Empty every call
+		// Cannot carry stale results from a previous call the way a returned array could if it reused a persistent variable.
 		TArray<UDMVTargetComponent*> FilteredResult;
 		Filter->PerformFilter(CandidatesTargetComponents, CachedPlayerController.Get(), FilteredResult);
 		CandidatesTargetComponents = MoveTemp(FilteredResult);
 	}
-	// After applying filters call the delegate
+
 	for (auto& CandidateTargetComponent : CandidatesTargetComponents)
 	{
 		TargetGroupToEvaluate->OnFilteringFinished.ExecuteIfBound(CandidateTargetComponent);
@@ -228,9 +223,7 @@ UTargetGroup* UDMVTargetEvaluator::AddTargetEvaluationContext(
 	NewTargetEvaluationContext->OnTargetCleared = OnTargetCleared;
 	NewTargetEvaluationContext->OnFilteringFinished = OnFilteringFinished;
 
-	// Duplicate each filter into a private, independently-owned copy so the caller's source
-	// instances (e.g. from a shared UDMVTargetFilter_Data asset) are never mutated or shared
-	// across TargetGroups - each usage gets its own per-instance-tunable properties.
+	// Duplicate each filter into a private, independently-owned copy so each caller use its own per-instance-tunable properties.
 	NewTargetEvaluationContext->Filters.Reserve(FiltersForTheContext.Num());
 	for (UDMVTargetFilter_Base* SourceFilter : FiltersForTheContext)
 	{
@@ -346,8 +339,7 @@ void UDMVTargetEvaluator::SetCurrentTargets(const FGameplayTag& ContextIdentifie
 		return;
 	}
 
-	// Only broadcast OnValidTargetFound for actors that weren't already this context's target -
-	// otherwise it'd fire every tick a group simply re-confirms the same target(s).
+	// Only broadcast OnValidTargetFound for actors that weren't already this context's target.
 	if (const UTargetGroup* TargetGroup = FindActiveTargetGroup(ContextIdentifier))
 	{
 		const TArray<TWeakObjectPtr<UDMVTargetComponent>>* PreviousTargets = CurrentTargetsMap.Find(ContextIdentifier);
@@ -365,17 +357,12 @@ void UDMVTargetEvaluator::SetCurrentTargets(const FGameplayTag& ContextIdentifie
 	}
 
 	CurrentTargetsMap.Add(ContextIdentifier, MoveTemp(WeakTargets));
-
-	// Verbose: this fires on every target change - potentially several times a second as the
-	// highest-interest target flickers between candidates - so it can't be a Warning.
-	UE_LOG(LogTemp, Verbose, TEXT("New target(s) of %s: %d"), *ContextIdentifier.ToString(), Targets.Num());
 }
 
 void UDMVTargetEvaluator::ClearCurrentTarget(const FGameplayTag& ContextIdentifier)
 {
-	// RemoveAndCopyValue only succeeds on the non-empty-to-empty transition, not every tick an
-	// already-empty group gets cleared again - the map never stores an empty array (see
-	// SetCurrentTargets), so a successful removal always means there's at least one actor to report.
+	// Only succeeds on the non-empty-to-empty transition, so not every tick an already-empty group gets cleared again 
+	// The map never stores an empty array, so a successful removal always means there's at least one actor to report.
 	TArray<TWeakObjectPtr<UDMVTargetComponent>> RemovedTargets;
 	if (!CurrentTargetsMap.RemoveAndCopyValue(ContextIdentifier, RemovedTargets))
 	{
@@ -388,8 +375,7 @@ void UDMVTargetEvaluator::ClearCurrentTarget(const FGameplayTag& ContextIdentifi
 		return;
 	}
 
-	// One broadcast per actor that was targeted, mirroring how OnValidTargetFound fires - a
-	// listener reacting per-actor (e.g. clearing that actor's highlight) needs the reference.
+	// One broadcast per actor that was targeted. A listener reacting per-actor needs the reference.
 	for (const TWeakObjectPtr<UDMVTargetComponent>& WeakTarget : RemovedTargets)
 	{
 		if (UDMVTargetComponent* Target = WeakTarget.Get())

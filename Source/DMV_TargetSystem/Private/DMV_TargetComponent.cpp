@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// Copyright DuarteMV. All Rights Reserved.
 
 
 #include "../Public/DMV_TargetComponent.h"
@@ -74,16 +74,16 @@ void UDMVTargetComponent::ResetInterest()
 
 UPrimitiveComponent* UDMVTargetComponent::ResolveVisibilityComponent() const
 {
-	switch (VisibilitySource)
+	switch (VisibilityMode)
 	{
-	case EDMVTargetVisibilitySource::ProxyCollision:
+	case EDMVTargetVisibilityMode::ProxyCollision:
 		if (AActor* Owner = GetOwner())
 		{
 			return Cast<UPrimitiveComponent>(VisibilityProxy.GetComponent(Owner));
 		}
 		return nullptr;
 
-	case EDMVTargetVisibilitySource::OwnerMeshCollision:
+	case EDMVTargetVisibilityMode::OwnerMeshCollision:
 		if (VisibilityMeshOverride)
 		{
 			return VisibilityMeshOverride;
@@ -94,7 +94,7 @@ UPrimitiveComponent* UDMVTargetComponent::ResolveVisibilityComponent() const
 		}
 		return nullptr;
 
-	case EDMVTargetVisibilitySource::Point:
+	case EDMVTargetVisibilityMode::Point:
 	default:
 		return nullptr;
 	}
@@ -105,13 +105,14 @@ TArray<FVector> UDMVTargetComponent::GetVisibilityTracePoints() const
 	const UPrimitiveComponent* VisibilityComponent = ResolveVisibilityComponent();
 	if (VisibilityComponent == nullptr)
 	{
-		return { GetComponentLocation() };
+		return { GetComponentLocation() }; // Defaults to Point
 	}
 
 	const FBoxSphereBounds ComponentBounds = VisibilityComponent->Bounds;
 	const FVector Origin = ComponentBounds.Origin;
 	const FVector Extent = ComponentBounds.BoxExtent;
 
+	// using 7 points. 6 faces of 'cube' + origin
 	return {
 		Origin,
 		Origin + FVector(0.f, 0.f, Extent.Z),

@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// Copyright DuarteMV. All Rights Reserved.
 
 #include "../../Public/Filters/DMV_TargetFilter_Class.h"
 
