@@ -1,27 +1,20 @@
 # DMV_TargetSystem
 
-A client-local candidate-selection plugin: given a set of "targetable" actors in the world, it
-picks which one (or ones) a specific local player is currently "targeting" for a given purpose -
-aim-assist, a lock-on reticle, ability targeting, an interact prompt, and so on. It does not
-apply damage, does not replicate, and is not itself an aiming/input system - it only answers
-"who is the current target for context X on this local player," continuously, every tick.
-
-**Status:** foundational and not yet wired into Labslop. Nothing in `Source/Labslop` currently
-adds a `UDMVTargetEvaluator` to a `PlayerController` or a `UDMVTargetComponent` to any actor -
-the plugin is a self-contained system with its own example filters in
-[`Content/FilterLibrary/`](Content/FilterLibrary), ready to be integrated when the first
-consuming system (aim-assist, enemy lock-on, an interact prompt, etc.) needs it. See
-[Integrating it into a project](#integrating-it-into-a-project) below for how that hookup should
-look.
-
 ## Design intent
+**Gather actors in the world and categorize them by the use they will have in the game. **
+To categorize them, the system uses **filters**: "Find nearby candidates, filter them, pick one (or many)."
+The system's aim is not to have an specific functionality, but to **provide to other systems**.
+The system is centralized instead of shared, so the responsibility is easy to access and we don't need to re-implement the logic multiple times.
+It answers to **"Who is the current target for context X on this local player."** continuously, **every tick.**
 
-The point of this system is to **take actors in the world and categorize them**, so other
-systems - UI (highlight prompts, reticles) or gameplay actions (interact, aim-assist, ability
-targeting) - can react to the right actor(s) without each of them re-implementing "find nearby
-candidates, filter them, pick one." A "category" is a target context tag; what a category is
-*for* (show a UI prompt on everything in it vs. resolve a single actor to act on) is exactly
-what `NumberOfTargets` decides per context.
+## Vocabulary
+- Category: Is a target context tag; what a category is
+*for*
+- NumberOfTargets: Decides per context how many actors are 
+
+
+
+## Use example
 
 **Worked example - interaction:** two separate contexts, registered independently, doing two
 different jobs off the same underlying actors:
